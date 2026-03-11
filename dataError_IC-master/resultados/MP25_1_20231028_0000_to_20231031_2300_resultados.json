@@ -1,0 +1,232 @@
+{
+  "nome_base": "MP25_1_20231028_0000_to_20231031_2300",
+  "classes": [
+    "lacuna",
+    "normal",
+    "oscilacao",
+    "queda",
+    "stuck",
+    "stuck_at_zero"
+  ],
+  "splits_validos": 4,
+  "resumo_modelos": [
+    {
+      "modelo": "RF",
+      "accuracy": 0.7710526315789473,
+      "macro_f1": 0.3972180134680135,
+      "weighted_f1": 0.7183514974304448
+    },
+    {
+      "modelo": "MLP",
+      "accuracy": 0.6868421052631579,
+      "macro_f1": 0.32516340126333637,
+      "weighted_f1": 0.663109597977797
+    },
+    {
+      "modelo": "XGB",
+      "accuracy": 0.6631578947368421,
+      "macro_f1": 0.31503072196620585,
+      "weighted_f1": 0.6507054145628
+    },
+    {
+      "modelo": "CAT",
+      "accuracy": 0.7842105263157895,
+      "macro_f1": 0.470908354519685,
+      "weighted_f1": 0.739954930917748
+    }
+  ],
+  "metricas_por_classe": [
+    {
+      "modelo": "RF",
+      "classe": "lacuna",
+      "precision": 0.09523809523809523,
+      "recall": 0.5,
+      "f1": 0.16,
+      "support": 4
+    },
+    {
+      "modelo": "RF",
+      "classe": "normal",
+      "precision": 0.8508771929824561,
+      "recall": 0.9765100671140939,
+      "f1": 0.909375,
+      "support": 298
+    },
+    {
+      "modelo": "RF",
+      "classe": "oscilacao",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 30
+    },
+    {
+      "modelo": "RF",
+      "classe": "queda",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    {
+      "modelo": "RF",
+      "classe": "stuck",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 25
+    },
+    {
+      "modelo": "RF",
+      "classe": "stuck_at_zero",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 23
+    },
+    {
+      "modelo": "MLP",
+      "classe": "lacuna",
+      "precision": 0.09090909090909091,
+      "recall": 0.5,
+      "f1": 0.15384615384615385,
+      "support": 4
+    },
+    {
+      "modelo": "MLP",
+      "classe": "normal",
+      "precision": 0.8301282051282052,
+      "recall": 0.8691275167785235,
+      "f1": 0.8491803278688524,
+      "support": 298
+    },
+    {
+      "modelo": "MLP",
+      "classe": "oscilacao",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 30
+    },
+    {
+      "modelo": "MLP",
+      "classe": "queda",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    {
+      "modelo": "MLP",
+      "classe": "stuck",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 25
+    },
+    {
+      "modelo": "MLP",
+      "classe": "stuck_at_zero",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 23
+    },
+    {
+      "modelo": "XGB",
+      "classe": "lacuna",
+      "precision": 0.031746031746031744,
+      "recall": 0.5,
+      "f1": 0.05970149253731343,
+      "support": 4
+    },
+    {
+      "modelo": "XGB",
+      "classe": "normal",
+      "precision": 0.8503401360544217,
+      "recall": 0.8389261744966443,
+      "f1": 0.8445945945945946,
+      "support": 298
+    },
+    {
+      "modelo": "XGB",
+      "classe": "oscilacao",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 30
+    },
+    {
+      "modelo": "XGB",
+      "classe": "queda",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    {
+      "modelo": "XGB",
+      "classe": "stuck",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 25
+    },
+    {
+      "modelo": "XGB",
+      "classe": "stuck_at_zero",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 23
+    },
+    {
+      "modelo": "CAT",
+      "classe": "lacuna",
+      "precision": 0.125,
+      "recall": 0.5,
+      "f1": 0.2,
+      "support": 4
+    },
+    {
+      "modelo": "CAT",
+      "classe": "normal",
+      "precision": 0.8753709198813057,
+      "recall": 0.9899328859060402,
+      "f1": 0.9291338582677166,
+      "support": 298
+    },
+    {
+      "modelo": "CAT",
+      "classe": "oscilacao",
+      "precision": 1.0,
+      "recall": 0.03333333333333333,
+      "f1": 0.06451612903225806,
+      "support": 30
+    },
+    {
+      "modelo": "CAT",
+      "classe": "queda",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    {
+      "modelo": "CAT",
+      "classe": "stuck",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 25
+    },
+    {
+      "modelo": "CAT",
+      "classe": "stuck_at_zero",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 23
+    }
+  ]
+}

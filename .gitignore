@@ -1,0 +1,14 @@
+.idea/
+venv/
+__pycache__/
+*.pyc
+
+*.zip
+*.exe
+*.rar
+*.7z
+
+Downloads/
+dataError_IC-master/Downloads/
+
+*.log
