@@ -25,9 +25,7 @@ from ml_pipeline import (
     avaliar_modelos
 )
 
-# =============================
 # CONFIG
-# =============================
 PASTA_DADOS = "dados"
 FREQ_PADRAO = "10min"
 PASTA_RESULTADOS = "resultados"
@@ -36,9 +34,8 @@ COLUNA_ALVO = "MP2,5_1"
 LAGS = 18
 
 
-# =============================
 # AUXILIARES
-# =============================
+
 def ler_periodo():
     ini = pd.to_datetime(input("Data início (dd/mm/aaaa hh:mm): "), dayfirst=True)
     fim = pd.to_datetime(input("Data fim (dd/mm/aaaa hh:mm): "), dayfirst=True)
@@ -50,9 +47,9 @@ def gerar_nome_base(coluna, ini, fim):
     return f"{col_safe}_{ini.strftime('%Y%m%d_%H%M')}_to_{fim.strftime('%Y%m%d_%H%M')}"
 
 
-# =============================
+
 # PLOT PADRÃO PAPER
-# =============================
+
 def _paper_style():
     plt.rcParams.update({
         "font.size": 11,
@@ -183,9 +180,9 @@ def gerar_figuras_falhas(df, coluna):
     )
 
 
-# =============================
+
 # OPÇÃO 2 – FIGURAS 1 e 2
-# =============================
+
 def modo_simular_plot(dados):
     coluna = COLUNA_ALVO
     ini, fim = ler_periodo()
@@ -229,9 +226,9 @@ def modo_simular_plot(dados):
     print(f"✅ Figuras 1 e 2 salvas em: {PASTA_RESULTADOS}/")
 
 
-# =============================
+
 # OPÇÃO 3 – SIMULA + TREINA
-# =============================
+
 def modo_simular_e_treinar(dados):
     coluna = COLUNA_ALVO
     ini, fim = ler_periodo()
@@ -318,9 +315,9 @@ def modo_simular_e_treinar(dados):
     print(resultados["resumo_modelos"])
 
 
-# =============================
+
 # MENU PRINCIPAL
-# =============================
+
 def main():
     print("\n=== Sistema de Simulação + Treinamento ===")
     print("(1) Sair")

@@ -98,9 +98,9 @@ def criar_features_temporais(df: pd.DataFrame, coluna: str, lags: int = 18) -> p
     df[f"{coluna}_roll_std_fill"] = df[f"{coluna}_roll_std"].fillna(0)
     df[f"{coluna}_quase_constante"] = (df[f"{coluna}_roll_std_fill"] < 1e-6).astype(float)
 
-    # =============================
+
     # FEATURES ESPECÍFICAS PARA STUCK-AT-ZERO
-    # =============================
+
     zero_mask = serie.fillna(np.nan).eq(0)
 
     tempo_zero_continuo = []
