@@ -1,4 +1,4 @@
-# ml_pipeline.py
+#PIPELINE
 
 import os
 import json
@@ -31,29 +31,132 @@ except Exception:
     _HAS_CAT = False
 
 
+def criar_features_temporais(df: pd.DataFrame, coluna: str, lags: int = 18) -> pd.DataFrame:
+    df = df.copy().sort_values("Datetime").reset_index(drop=True)
 
-# CARACTERÍSTICAS TEMPORAIS
+    serie = pd.to_numeric(df[coluna], errors="coerce")
 
-def criar_features_temporais(df: pd.DataFrame, coluna: str, lags: int = 12) -> pd.DataFrame:
-    df = df.copy()
-    df = df.sort_values("Datetime")
+    # ausência
+    df[f"{coluna}_is_nan"] = serie.isna().astype(int)
 
+    # lags
     for k in range(1, lags + 1):
-        df[f"{coluna}_lag_{k}"] = df[coluna].shift(k)
+        df[f"{coluna}_lag_{k}"] = serie.shift(k)
 
-    df[f"{coluna}_diff_abs"] = df[coluna].diff().abs()
+    # diferenças
+    df[f"{coluna}_diff_1"] = serie.diff(1)
+    df[f"{coluna}_diff_2"] = serie.diff(2)
+    df[f"{coluna}_diff_3"] = serie.diff(3)
 
-    win = max(3, min(12, lags))
-    df[f"{coluna}_roll_mean"] = df[coluna].rolling(window=win, min_periods=1).mean()
-    df[f"{coluna}_roll_std"] = df[coluna].rolling(window=win, min_periods=1).std()
+    df[f"{coluna}_diff_abs_1"] = serie.diff(1).abs()
+    df[f"{coluna}_diff_abs_2"] = serie.diff(2).abs()
+    df[f"{coluna}_diff_abs_3"] = serie.diff(3).abs()
+
+    # rolling
+    win = max(5, lags)
+
+    df[f"{coluna}_roll_mean"] = serie.rolling(win, min_periods=1).mean()
+    df[f"{coluna}_roll_std"] = serie.rolling(win, min_periods=1).std()
+    df[f"{coluna}_roll_min"] = serie.rolling(win, min_periods=1).min()
+    df[f"{coluna}_roll_max"] = serie.rolling(win, min_periods=1).max()
+    df[f"{coluna}_roll_median"] = serie.rolling(win, min_periods=1).median()
+
+    df[f"{coluna}_amplitude"] = df[f"{coluna}_roll_max"] - df[f"{coluna}_roll_min"]
+
+    # zero e repetição
+    df[f"{coluna}_is_zero"] = serie.fillna(np.nan).eq(0).astype(float)
+    df[f"{coluna}_prop_zero"] = df[f"{coluna}_is_zero"].rolling(win, min_periods=1).mean()
+
+    df[f"{coluna}_igual_anterior"] = (serie == serie.shift(1)).astype(float)
+    df[f"{coluna}_prop_repetido"] = df[f"{coluna}_igual_anterior"].rolling(win, min_periods=1).mean()
+
+    # nan na janela
+    df[f"{coluna}_nan_count"] = df[f"{coluna}_is_nan"].rolling(win, min_periods=1).sum()
+    df[f"{coluna}_nan_prop"] = df[f"{coluna}_is_nan"].rolling(win, min_periods=1).mean()
+
+    # mudanças de sinal
+    diff1 = serie.diff()
+    sinal = np.sign(diff1)
+    mudou_sinal = (sinal * sinal.shift(1) < 0).astype(float)
+    df[f"{coluna}_mudanca_sinal"] = mudou_sinal.rolling(win, min_periods=1).sum()
+
+    # energia da variação
+    df[f"{coluna}_energia_variacao"] = diff1.abs().rolling(win, min_periods=1).sum()
+
+    # tendência
+    df[f"{coluna}_tendencia"] = serie.diff(win)
+
+    # distância da média local
+    df[f"{coluna}_desvio_media_local"] = (serie - df[f"{coluna}_roll_mean"]).abs()
+
+    # coeficiente de variação local
+    df[f"{coluna}_coef_var_local"] = (
+        df[f"{coluna}_roll_std"] / (df[f"{coluna}_roll_mean"].abs() + 1e-6)
+    )
+
+    # trecho constante
+    df[f"{coluna}_roll_std_fill"] = df[f"{coluna}_roll_std"].fillna(0)
+    df[f"{coluna}_quase_constante"] = (df[f"{coluna}_roll_std_fill"] < 1e-6).astype(float)
+
+    # =============================
+    # FEATURES ESPECÍFICAS PARA STUCK-AT-ZERO
+    # =============================
+    zero_mask = serie.fillna(np.nan).eq(0)
+
+    tempo_zero_continuo = []
+    cont = 0
+    for v in zero_mask:
+        if v:
+            cont += 1
+        else:
+            cont = 0
+        tempo_zero_continuo.append(cont)
+
+    df[f"{coluna}_tempo_zero_continuo"] = tempo_zero_continuo
+
+    quase_zero_mask = serie.fillna(np.nan).abs().le(0.1)
+
+    tempo_quase_zero_continuo = []
+    cont_qz = 0
+    for v in quase_zero_mask:
+        if v:
+            cont_qz += 1
+        else:
+            cont_qz = 0
+        tempo_quase_zero_continuo.append(cont_qz)
+
+    df[f"{coluna}_tempo_quase_zero_continuo"] = tempo_quase_zero_continuo
+
+    df[f"{coluna}_zero_count_janela"] = zero_mask.astype(float).rolling(win, min_periods=1).sum()
+
+    df[f"{coluna}_janela_toda_zero"] = (
+        df[f"{coluna}_zero_count_janela"] >= win
+    ).astype(float)
+
+    df[f"{coluna}_janela_quase_toda_zero"] = (
+        df[f"{coluna}_prop_zero"] >= 0.8
+    ).astype(float)
+
+    df[f"{coluna}_zero_e_baixa_var"] = (
+        (df[f"{coluna}_prop_zero"] >= 0.5) &
+        (df[f"{coluna}_roll_std_fill"] < 1e-6)
+    ).astype(float)
+
+    df[f"{coluna}_zero_diff_abs"] = (
+        df[f"{coluna}_is_zero"] * df[f"{coluna}_diff_abs_1"].fillna(0)
+    )
+
+    df[f"{coluna}_score_stuck_zero"] = (
+        0.35 * df[f"{coluna}_prop_zero"].fillna(0) +
+        0.35 * (df[f"{coluna}_tempo_zero_continuo"] / max(1, win)) +
+        0.30 * (1 - np.clip(df[f"{coluna}_roll_std_fill"], 0, 1))
+    )
 
     df = df.dropna(subset=["label"]).copy()
     df["label"] = df["label"].astype(str)
 
     return df
 
-
-# PLOTS (paper style)
 
 def _paper_style():
     plt.rcParams.update({
@@ -129,38 +232,39 @@ def _plot_f1_por_classe(df_metricas_por_classe: pd.DataFrame, path_png: str):
     plt.close(fig)
 
 
-# MODELOS
-
 def _build_models(random_state=42):
     models = {
         "RF": RandomForestClassifier(
-            n_estimators=300,
+            n_estimators=400,
             random_state=random_state,
-            class_weight="balanced_subsample"
+            class_weight="balanced_subsample",
+            max_depth=None,
+            min_samples_leaf=1
         ),
         "MLP": MLPClassifier(
-            hidden_layer_sizes=(64, 32),
-            max_iter=600,
+            hidden_layer_sizes=(128, 64),
+            max_iter=800,
             random_state=random_state
         )
     }
 
     if _HAS_XGB:
         models["XGB"] = XGBClassifier(
-            n_estimators=400,
-            max_depth=5,
-            learning_rate=0.08,
+            n_estimators=500,
+            max_depth=6,
+            learning_rate=0.05,
             subsample=0.9,
             colsample_bytree=0.9,
             reg_lambda=1.0,
             random_state=random_state,
-            n_jobs=-1
+            n_jobs=-1,
+            eval_metric="mlogloss"
         )
 
     if _HAS_CAT:
         models["CAT"] = CatBoostClassifier(
-            iterations=500,
-            learning_rate=0.08,
+            iterations=600,
+            learning_rate=0.05,
             depth=6,
             loss_function="MultiClass",
             random_seed=random_state,
@@ -170,13 +274,10 @@ def _build_models(random_state=42):
     return models
 
 
-
-# AVALIAÇÃO
-
 def avaliar_modelos(
     df_feat: pd.DataFrame,
     col_alvo: str,
-    lags: int = 12,
+    lags: int = 18,
     n_splits: int = 5,
     salvar_saidas: bool = True,
     pasta_out: str = "resultados",
@@ -192,20 +293,22 @@ def avaliar_modelos(
     X = df[feature_cols].copy()
     y = df["label"].astype(str).copy()
 
-    # sem warning
-    X = X.ffill().bfill().fillna(0)
+    for c in X.columns:
+        if X[c].isna().any():
+            X[c] = X[c].ffill().bfill()
+    X = X.fillna(0)
 
-    # encoder GLOBAL (só para referência e para montar as matrizes finais)
     le = LabelEncoder()
     le.fit(sorted(y.unique().tolist()))
     classes = le.classes_.tolist()
     y_enc_global = le.transform(y)
 
     base_models = _build_models(random_state=42)
+
     if not _HAS_XGB:
-        print("⚠️ XGBoost não está disponível (pacote xgboost não encontrado).")
+        print("⚠️ XGBoost não está disponível.")
     if not _HAS_CAT:
-        print("⚠️ CatBoost não está disponível (pacote catboost não encontrado).")
+        print("⚠️ CatBoost não está disponível.")
 
     agg_conf = {m: np.zeros((len(classes), len(classes)), dtype=int) for m in base_models}
     agg_metrics = {m: [] for m in base_models}
@@ -215,7 +318,7 @@ def avaliar_modelos(
 
     for split_id, (tr_idx, te_idx) in enumerate(tscv.split(X), start=1):
         Xtr, Xte = X.iloc[tr_idx], X.iloc[te_idx]
-        ytr_g, yte_g = y_enc_global[tr_idx], y_enc_global[te_idx]  # índices globais
+        ytr_g, yte_g = y_enc_global[tr_idx], y_enc_global[te_idx]
 
         if len(np.unique(ytr_g)) < 2 or len(np.unique(yte_g)) < 2:
             print(f"⚠️ Split {split_id}: treino/teste com poucas classes. Pulando.")
@@ -226,34 +329,28 @@ def avaliar_modelos(
         for nome, base_model in base_models.items():
             modelo = clone(base_model)
 
-
-            # FIX DEFINITIVO DO XGB: re-encode local 0..K-1 no split
-
             if nome == "XGB":
-                classes_presentes = np.unique(ytr_g)  # ex.: [0, 1, 3]
-                map_g2l = {g: i for i, g in enumerate(classes_presentes)}  # {0:0, 1:1, 3:2}
+                classes_presentes = np.unique(ytr_g)
+                map_g2l = {g: i for i, g in enumerate(classes_presentes)}
                 map_l2g = {i: g for g, i in map_g2l.items()}
 
                 ytr_l = np.array([map_g2l[g] for g in ytr_g], dtype=int)
-                # yte pode ter classes fora do treino; isso é ok, só não dá pra "transformar" no local
-                # a gente mantém yte global e só converte ypred para global depois
 
-                modelo.set_params(objective="multi:softprob", num_class=len(classes_presentes))
+                modelo.set_params(
+                    objective="multi:softprob",
+                    num_class=len(classes_presentes)
+                )
                 modelo.fit(Xtr, ytr_l)
 
                 ypred_l = modelo.predict(Xte).astype(int)
                 ypred_g = np.array([map_l2g[i] for i in ypred_l], dtype=int)
-
             else:
-                # outros modelos aceitam labels globais sem problema
                 modelo.fit(Xtr, ytr_g)
                 ypred_g = modelo.predict(Xte).astype(int)
 
-            # matriz de confusão GLOBAL (tamanho fixo, sem quebrar)
             cm = confusion_matrix(yte_g, ypred_g, labels=np.arange(len(classes)))
             agg_conf[nome] += cm
 
-            # métricas globais do split
             acc = float(accuracy_score(yte_g, ypred_g))
 
             prec_m, rec_m, f1_m, _ = precision_recall_fscore_support(
@@ -276,11 +373,10 @@ def avaliar_modelos(
 
     if splits_ok == 0:
         raise ValueError(
-            "Nenhum split válido foi gerado (treino/teste com classes insuficientes). "
-            "Aumente a janela temporal ou garanta falhas também no trecho final (teste)."
+            "Nenhum split válido foi gerado. "
+            "Aumente a janela temporal ou garanta falhas no trecho final."
         )
 
-    # métricas por classe a partir da confusão agregada
     rows_por_classe = []
     rows_resumo = []
 
@@ -300,7 +396,10 @@ def avaliar_modelos(
         y_pred_flat = np.array(y_pred_flat, dtype=int)
 
         prec, rec, f1, sup = precision_recall_fscore_support(
-            y_true_flat, y_pred_flat, labels=np.arange(len(classes)), zero_division=0
+            y_true_flat,
+            y_pred_flat,
+            labels=np.arange(len(classes)),
+            zero_division=0
         )
 
         for c_idx, c_name in enumerate(classes):
@@ -347,6 +446,7 @@ def avaliar_modelos(
             "resumo_modelos": df_resumo_modelos.to_dict(orient="records"),
             "metricas_por_classe": df_metricas_por_classe.to_dict(orient="records")
         }
+
         with open(out_json, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 

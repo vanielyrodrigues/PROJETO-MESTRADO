@@ -1,0 +1,232 @@
+{
+  "nome_base": "MP25_1_20231105_0000_to_20240107_0000",
+  "classes": [
+    "lacuna",
+    "normal",
+    "oscilacao",
+    "queda",
+    "stuck",
+    "stuck_at_zero"
+  ],
+  "splits_validos": 5,
+  "resumo_modelos": [
+    {
+      "modelo": "RF",
+      "accuracy": 0.8830687830687831,
+      "macro_f1": 0.757296491687103,
+      "weighted_f1": 0.8662492085790408
+    },
+    {
+      "modelo": "MLP",
+      "accuracy": 0.8371693121693122,
+      "macro_f1": 0.7201767277041627,
+      "weighted_f1": 0.8324830402263561
+    },
+    {
+      "modelo": "XGB",
+      "accuracy": 0.898809523809524,
+      "macro_f1": 0.8069352807867723,
+      "weighted_f1": 0.8833257868828517
+    },
+    {
+      "modelo": "CAT",
+      "accuracy": 0.8970899470899472,
+      "macro_f1": 0.7701004454198902,
+      "weighted_f1": 0.8833557082469067
+    }
+  ],
+  "metricas_por_classe": [
+    {
+      "modelo": "RF",
+      "classe": "lacuna",
+      "precision": 1.0,
+      "recall": 0.5879120879120879,
+      "f1": 0.740484429065744,
+      "support": 182
+    },
+    {
+      "modelo": "RF",
+      "classe": "normal",
+      "precision": 0.8906403940886699,
+      "recall": 0.9826086956521739,
+      "f1": 0.9343669250645995,
+      "support": 5520
+    },
+    {
+      "modelo": "RF",
+      "classe": "oscilacao",
+      "precision": 0.8488120950323974,
+      "recall": 0.8656387665198237,
+      "f1": 0.8571428571428571,
+      "support": 454
+    },
+    {
+      "modelo": "RF",
+      "classe": "queda",
+      "precision": 1.0,
+      "recall": 0.8130081300813008,
+      "f1": 0.8968609865470852,
+      "support": 123
+    },
+    {
+      "modelo": "RF",
+      "classe": "stuck",
+      "precision": 0.8405797101449275,
+      "recall": 0.3841059602649007,
+      "f1": 0.5272727272727272,
+      "support": 604
+    },
+    {
+      "modelo": "RF",
+      "classe": "stuck_at_zero",
+      "precision": 0.8015267175572519,
+      "recall": 0.620384047267356,
+      "f1": 0.6994171523730225,
+      "support": 677
+    },
+    {
+      "modelo": "MLP",
+      "classe": "lacuna",
+      "precision": 0.9322033898305084,
+      "recall": 0.6043956043956044,
+      "f1": 0.7333333333333333,
+      "support": 182
+    },
+    {
+      "modelo": "MLP",
+      "classe": "normal",
+      "precision": 0.898578698017196,
+      "recall": 0.9277173913043478,
+      "f1": 0.9129155896247437,
+      "support": 5520
+    },
+    {
+      "modelo": "MLP",
+      "classe": "oscilacao",
+      "precision": 0.9088888888888889,
+      "recall": 0.9008810572687225,
+      "f1": 0.9048672566371682,
+      "support": 454
+    },
+    {
+      "modelo": "MLP",
+      "classe": "queda",
+      "precision": 0.967741935483871,
+      "recall": 0.7317073170731707,
+      "f1": 0.8333333333333334,
+      "support": 123
+    },
+    {
+      "modelo": "MLP",
+      "classe": "stuck",
+      "precision": 0.36425648021828105,
+      "recall": 0.4420529801324503,
+      "f1": 0.3994016454749439,
+      "support": 604
+    },
+    {
+      "modelo": "MLP",
+      "classe": "stuck_at_zero",
+      "precision": 0.7109207708779444,
+      "recall": 0.49039881831610044,
+      "f1": 0.5804195804195804,
+      "support": 677
+    },
+    {
+      "modelo": "XGB",
+      "classe": "lacuna",
+      "precision": 1.0,
+      "recall": 0.7252747252747253,
+      "f1": 0.8407643312101911,
+      "support": 182
+    },
+    {
+      "modelo": "XGB",
+      "classe": "normal",
+      "precision": 0.9042164674634794,
+      "recall": 0.9867753623188406,
+      "f1": 0.9436936936936937,
+      "support": 5520
+    },
+    {
+      "modelo": "XGB",
+      "classe": "oscilacao",
+      "precision": 0.8849557522123894,
+      "recall": 0.8810572687224669,
+      "f1": 0.8830022075055187,
+      "support": 454
+    },
+    {
+      "modelo": "XGB",
+      "classe": "queda",
+      "precision": 0.9818181818181818,
+      "recall": 0.8780487804878049,
+      "f1": 0.927038626609442,
+      "support": 123
+    },
+    {
+      "modelo": "XGB",
+      "classe": "stuck",
+      "precision": 0.8314176245210728,
+      "recall": 0.35927152317880795,
+      "f1": 0.5017341040462427,
+      "support": 604
+    },
+    {
+      "modelo": "XGB",
+      "classe": "stuck_at_zero",
+      "precision": 0.8450946643717728,
+      "recall": 0.725258493353028,
+      "f1": 0.78060413354531,
+      "support": 677
+    },
+    {
+      "modelo": "CAT",
+      "classe": "lacuna",
+      "precision": 1.0,
+      "recall": 0.5879120879120879,
+      "f1": 0.740484429065744,
+      "support": 182
+    },
+    {
+      "modelo": "CAT",
+      "classe": "normal",
+      "precision": 0.9102478231748158,
+      "recall": 0.9847826086956522,
+      "f1": 0.9460494256874348,
+      "support": 5520
+    },
+    {
+      "modelo": "CAT",
+      "classe": "oscilacao",
+      "precision": 0.8492871690427699,
+      "recall": 0.9185022026431718,
+      "f1": 0.8825396825396825,
+      "support": 454
+    },
+    {
+      "modelo": "CAT",
+      "classe": "queda",
+      "precision": 1.0,
+      "recall": 0.6910569105691057,
+      "f1": 0.8173076923076923,
+      "support": 123
+    },
+    {
+      "modelo": "CAT",
+      "classe": "stuck",
+      "precision": 0.8136094674556213,
+      "recall": 0.4552980132450331,
+      "f1": 0.583864118895966,
+      "support": 604
+    },
+    {
+      "modelo": "CAT",
+      "classe": "stuck_at_zero",
+      "precision": 0.8148148148148148,
+      "recall": 0.6824224519940916,
+      "f1": 0.7427652733118971,
+      "support": 677
+    }
+  ]
+}
