@@ -1,4 +1,4 @@
-#MAIN
+# main.py
 
 import os
 import numpy as np
@@ -21,8 +21,7 @@ from simulacao_falhas import (
 )
 
 from ml_pipeline import (
-    criar_features_temporais,
-    avaliar_modelos
+    avaliar_xgb_por_falha_e_janela
 )
 
 # CONFIG
@@ -31,7 +30,6 @@ FREQ_PADRAO = "10min"
 PASTA_RESULTADOS = "resultados"
 PASTA_RELATORIOS = "relatorios"
 COLUNA_ALVO = "MP2,5_1"
-LAGS = 18
 
 
 # AUXILIARES
@@ -45,7 +43,6 @@ def ler_periodo():
 def gerar_nome_base(coluna, ini, fim):
     col_safe = coluna.replace(",", "").replace(".", "").replace(" ", "_")
     return f"{col_safe}_{ini.strftime('%Y%m%d_%H%M')}_to_{fim.strftime('%Y%m%d_%H%M')}"
-
 
 
 # PLOT PADRÃO PAPER
@@ -93,70 +90,23 @@ def plot_e_salvar_falha_individual(df, coluna, label, nome_arquivo, titulo):
         return
 
     _paper_style()
-    fig = plt.figure(figsize=(8.5, 3.2))
-    ax = plt.gca()
-
-    ax.plot(trecho["Datetime"], trecho[coluna], linewidth=1.2, label="Série")
-
-    mask = trecho["label"].astype(str) == str(label)
-    if mask.any():
-        t_ini = trecho.loc[mask, "Datetime"].iloc[0]
-        t_fim = trecho.loc[mask, "Datetime"].iloc[-1]
-        ax.axvspan(t_ini, t_fim, alpha=0.20, label=f"Falha: {label}")
-
-    ax.set_title(titulo)
-    ax.set_xlabel("Tempo")
-    ax.set_ylabel(coluna.replace(",", "."))
-    ax.legend(loc="best")
-
-    out = os.path.join(PASTA_RELATORIOS, nome_arquivo)
-    _savefig(out)
+    fig = plt.figure(figsize=(10, 4))
+    plt.plot(trecho["Datetime"], trecho[coluna], linewidth=1.8)
+    plt.title(titulo)
+    plt.xlabel("Tempo")
+    plt.ylabel(coluna.replace(",", "."))
+    plt.grid(True)
+    caminho = os.path.join(PASTA_RELATORIOS, nome_arquivo)
+    _savefig(caminho)
     plt.close(fig)
-    print(f"✅ Salvo: {out}")
 
-
-def plot_e_salvar_falhas_todas(
-    df,
-    coluna,
-    nome_arquivo="falhas_todas.png",
-    titulo="Série temporal com falhas simuladas (visão geral)"
-):
-    if "label" not in df.columns:
-        print("⚠️ DF não tem coluna 'label'.")
-        return
-
-    _paper_style()
-    fig = plt.figure(figsize=(12, 4.2))
-    ax = plt.gca()
-
-    ax.plot(df["Datetime"], df[coluna], linewidth=1.0, alpha=0.85, label="Série")
-
-    classes = [c for c in df["label"].astype(str).unique().tolist() if c != "normal"]
-    classes = sorted(classes)
-
-    for c in classes:
-        m = df["label"].astype(str) == c
-        if m.sum() == 0:
-            continue
-        ax.scatter(df.loc[m, "Datetime"], df.loc[m, coluna], s=18, label=c)
-
-    ax.set_title(titulo)
-    ax.set_xlabel("Tempo")
-    ax.set_ylabel(coluna.replace(",", "."))
-    ax.legend(ncol=3, loc="upper center", bbox_to_anchor=(0.5, -0.22), frameon=False)
-
-    out = os.path.join(PASTA_RELATORIOS, nome_arquivo)
-    _savefig(out)
-    plt.close(fig)
-    print(f"✅ Salvo: {out}")
+    print(f"✅ Figura salva: {caminho}")
 
 
 def gerar_figuras_falhas(df, coluna):
-    plot_e_salvar_falhas_todas(df, coluna, nome_arquivo="falhas_todas.png")
-
     plot_e_salvar_falha_individual(
         df, coluna, "queda", "falha_queda.png",
-        "Falha: Queda (redução abrupta do sinal)"
+        "Falha: Queda (redução abrupta do valor)"
     )
 
     plot_e_salvar_falha_individual(
@@ -178,7 +128,6 @@ def gerar_figuras_falhas(df, coluna):
         df, coluna, "stuck_at_zero", "falha_stuck_at_zero.png",
         "Falha: Stuck-at-zero (valores nulos persistentes)"
     )
-
 
 
 # OPÇÃO 2 – FIGURAS 1 e 2
@@ -226,7 +175,6 @@ def modo_simular_plot(dados):
     print(f"✅ Figuras 1 e 2 salvas em: {PASTA_RESULTADOS}/")
 
 
-
 # OPÇÃO 3 – SIMULA + TREINA
 
 def modo_simular_e_treinar(dados):
@@ -236,6 +184,10 @@ def modo_simular_e_treinar(dados):
     df = filtrar_periodo(dados, ini, fim)
     df = reamostrar_e_imputar(df, FREQ_PADRAO)
     df = preparar_base(df, coluna)
+
+    if df.empty:
+        print("⚠️ Não há dados no período selecionado.")
+        return
 
     # 1) Injeta falhas balanceadas ao longo da série
     config_balanco = {
@@ -285,35 +237,37 @@ def modo_simular_e_treinar(dados):
         modo="queda"
     )
 
-    # 3) Gera figuras
+    # 3) Gera figuras das falhas
     os.makedirs(PASTA_RELATORIOS, exist_ok=True)
     gerar_figuras_falhas(df, coluna)
 
-    # 4) Features temporais
-    df_feat = criar_features_temporais(df, coluna, lags=LAGS)
-
-    print("\nDistribuição de classes:")
-    print(df_feat["label"].value_counts(dropna=False))
+    print("\nDistribuição de classes no sinal simulado:")
+    print(df["label"].value_counts(dropna=False))
 
     nome_base = gerar_nome_base(coluna, ini, fim)
 
-    # 5) Avalia modelos
+    # 4) Treino separado por falha + teste de várias janelas/passos
     os.makedirs(PASTA_RESULTADOS, exist_ok=True)
-    resultados = avaliar_modelos(
-        df_feat=df_feat,
-        col_alvo=coluna,
-        lags=LAGS,
+
+    resultados = avaliar_xgb_por_falha_e_janela(
+        df_base=df,
+        coluna=coluna,
+        janelas=list(range(10, 101, 10)),   # 10, 20, ..., 100
+        passos_cfg=[1, 5, "n/3"],           # avanço 1, 5 e n/3
         n_splits=5,
-        salvar_saidas=True,
         pasta_out=PASTA_RESULTADOS,
-        nome_base=nome_base
+        nome_base=nome_base,
+        rotulo_modo="qualquer"                   # vou testar "fim" depois "qualquer"
     )
 
     print(f"\n✅ Resultados salvos em: {PASTA_RESULTADOS}/")
     print(f"✅ Figuras de falhas salvas em: {PASTA_RELATORIOS}/")
-    print("\nResumo dos modelos:")
-    print(resultados["resumo_modelos"])
 
+    print("\nMelhores configurações por falha:")
+    if resultados["melhores_configuracoes"].empty:
+        print("⚠️ Nenhuma configuração válida foi encontrada.")
+    else:
+        print(resultados["melhores_configuracoes"])
 
 
 # MENU PRINCIPAL
@@ -322,7 +276,7 @@ def main():
     print("\n=== Sistema de Simulação + Treinamento ===")
     print("(1) Sair")
     print("(2) Gerar Figuras 1 e 2 (série temporal)")
-    print("(3) Simular + Treinar Modelos (matrizes, F1, tabelas) + Figuras falhas")
+    print("(3) Simular + Treinar Modelos por falha (janelas e passos) + Figuras falhas")
 
     dados = carregar_dados(PASTA_DADOS)
 
