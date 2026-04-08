@@ -252,12 +252,23 @@ def modo_simular_e_treinar(dados):
     resultados = avaliar_xgb_por_falha_e_janela(
         df_base=df,
         coluna=coluna,
-        janelas=list(range(10, 101, 10)),   # 10, 20, ..., 100
-        passos_cfg=[1, 5, "n/3"],           # avanço 1, 5 e n/3
+
+        # ANTES:
+        # janelas=list(range(10, 101, 10))
+        # passos_cfg=[1, 5, "n/3"]
+
+        # AGORA:
+        # deixei a lógica mais próxima do pseudocódigo do professor:
+        # testa vários tamanhos de janela e vários avanços
+        janelas=list(range(20, 101, 10)),          # 20, 30, ..., 100
+        passos_cfg=list(range(5, 101, 5)),         # depois o pipeline limita aos válidos por janela
         n_splits=5,
         pasta_out=PASTA_RESULTADOS,
         nome_base=nome_base,
-        rotulo_modo="qualquer"                   # vou testar "fim" depois "qualquer"
+
+        # ANTES estava "qualquer"
+        # mantive para detectar se a falha apareceu em qualquer ponto da janela
+        rotulo_modo="qualquer"
     )
 
     print(f"\n✅ Resultados salvos em: {PASTA_RESULTADOS}/")
@@ -268,6 +279,11 @@ def modo_simular_e_treinar(dados):
         print("⚠️ Nenhuma configuração válida foi encontrada.")
     else:
         print(resultados["melhores_configuracoes"])
+
+    # Arquivos principais gerados
+    print("\nArquivos principais gerados:")
+    for k, v in resultados["paths"].items():
+        print(f" - {k}: {v}")
 
 
 # MENU PRINCIPAL
