@@ -1,4 +1,3 @@
-
 #AJUSTES
 
 import os
@@ -246,6 +245,88 @@ def detectar_stuck(df: pd.DataFrame, coluna: str, janela=20, tol=1e-9) -> pd.Dat
             resultados.append((datas[i + janela // 2], valores[i + janela // 2]))
 
     return pd.DataFrame(resultados, columns=["Datetime", coluna])
+
+
+# ============================================================
+# MUDANÇA NOVA:
+# detector por algoritmo para stuck e stuck_at_zero
+# - NÃO usa modelo de ML
+# - marca diretamente a coluna "label"
+# - permite definir quantos pontos consecutivos caracterizam travamento
+# ============================================================
+def detectar_stuck_e_stuck_zero(
+    df: pd.DataFrame,
+    coluna: str,
+    min_pontos_stuck: int = 6,
+    min_pontos_zero: int = 6,
+    tol: float = 1e-9
+) -> pd.DataFrame:
+    """
+    Marca no próprio DataFrame:
+    - stuck: sequência de valores constantes por min_pontos_stuck ou mais
+    - stuck_at_zero: sequência de zeros por min_pontos_zero ou mais
+
+    Exemplo com frequência de 10 minutos:
+    6 pontos  = 1 hora
+    24 pontos = 4 horas
+    """
+    df = df.copy().sort_values("Datetime").reset_index(drop=True)
+
+    if "label" not in df.columns:
+        df["label"] = "normal"
+
+    valores = pd.to_numeric(df[coluna], errors="coerce").to_numpy(dtype=float)
+    n = len(df)
+    i = 0
+
+    while i < n:
+        vi = valores[i]
+
+        if np.isnan(vi):
+            i += 1
+            continue
+
+        # ------------------------------------
+        # caso 1: sequência de zeros
+        # ------------------------------------
+        if np.isclose(vi, 0.0, atol=tol):
+            j = i + 1
+            while j < n:
+                vj = valores[j]
+                if np.isnan(vj) or (not np.isclose(vj, 0.0, atol=tol)):
+                    break
+                j += 1
+
+            tamanho = j - i
+            if tamanho >= min_pontos_zero:
+                df.loc[i:j - 1, "label"] = "stuck_at_zero"
+
+            i = j
+            continue
+
+        # ------------------------------------
+        # caso 2: sequência constante não-zero
+        # ------------------------------------
+        j = i + 1
+        while j < n:
+            vj = valores[j]
+            if np.isnan(vj):
+                break
+            if np.isclose(vj, vi, atol=tol):
+                j += 1
+            else:
+                break
+
+        tamanho = j - i
+        if tamanho >= min_pontos_stuck:
+            # só marca stuck onde ainda não houver outro rótulo
+            mask_normal = df.loc[i:j - 1, "label"].astype(str) == "normal"
+            idxs = df.loc[i:j - 1].index[mask_normal]
+            df.loc[idxs, "label"] = "stuck"
+
+        i = j
+
+    return df
 
 
 def detectar_oscilacoes(df: pd.DataFrame, coluna: str, limite=10) -> pd.DataFrame:

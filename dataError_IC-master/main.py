@@ -1,14 +1,21 @@
-# main.py
-
 import os
 import numpy as np
 import pandas as pd
+
+# ==============================
+# MUDANÇA:
+# força backend não interativo para evitar erro do tkinter
+# ==============================
+import matplotlib
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 from ajustes import (
     carregar_dados,
     filtrar_periodo,
-    reamostrar_e_imputar
+    reamostrar_e_imputar,
+    detectar_stuck_e_stuck_zero
 )
 
 from simulacao_falhas import (
@@ -16,7 +23,6 @@ from simulacao_falhas import (
     injetar_intervalo_por_tempo,
     balancear_falhas,
     LABEL_OSC,
-    LABEL_STUCK_ZERO,
     LABEL_LACUNA
 )
 
@@ -24,11 +30,19 @@ from ml_pipeline import (
     avaliar_xgb_por_falha_e_janela
 )
 
+# ==============================
 # CONFIG
-PASTA_DADOS = "dados"
+# MUDANÇA:
+# uso de caminhos absolutos para garantir
+# que resultados e relatórios sejam salvos
+# na pasta correta do projeto
+# ==============================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+PASTA_DADOS = os.path.join(BASE_DIR, "dados")
 FREQ_PADRAO = "10min"
-PASTA_RESULTADOS = "resultados"
-PASTA_RELATORIOS = "relatorios"
+PASTA_RESULTADOS = os.path.join(BASE_DIR, "resultados")
+PASTA_RELATORIOS = os.path.join(BASE_DIR, "relatorios")
 COLUNA_ALVO = "MP2,5_1"
 
 
@@ -100,7 +114,9 @@ def plot_e_salvar_falha_individual(df, coluna, label, nome_arquivo, titulo):
     _savefig(caminho)
     plt.close(fig)
 
-    print(f"✅ Figura salva: {caminho}")
+    # MUDANÇA:
+    # mostra caminho absoluto para não haver dúvida
+    print(f"✅ Figura salva: {os.path.abspath(caminho)}")
 
 
 def gerar_figuras_falhas(df, coluna):
@@ -119,11 +135,21 @@ def gerar_figuras_falhas(df, coluna):
         "Falha: Lacuna (ausência de leituras no intervalo)"
     )
 
+    # ==============================
+    # MANTIDO:
+    # continua gerando figura de stuck
+    # agora detectado por algoritmo
+    # ==============================
     plot_e_salvar_falha_individual(
         df, coluna, "stuck", "falha_stuck.png",
         "Falha: Stuck (sinal constante por um período)"
     )
 
+    # ==============================
+    # MANTIDO:
+    # continua gerando figura de stuck_at_zero
+    # agora detectado por algoritmo
+    # ==============================
     plot_e_salvar_falha_individual(
         df, coluna, "stuck_at_zero", "falha_stuck_at_zero.png",
         "Falha: Stuck-at-zero (valores nulos persistentes)"
@@ -140,6 +166,19 @@ def modo_simular_plot(dados):
     df = reamostrar_e_imputar(df, FREQ_PADRAO)
     df = preparar_base(df, coluna)
 
+    # ==============================
+    # MUDANÇA:
+    # detecta stuck e stuck_at_zero por algoritmo
+    # antes da simulação das outras falhas
+    # ==============================
+    df = detectar_stuck_e_stuck_zero(
+        df,
+        coluna=coluna,
+        min_pontos_stuck=6,   # 6 pontos = 1 hora em dados de 10 min
+        min_pontos_zero=6,
+        tol=1e-9
+    )
+
     os.makedirs(PASTA_RESULTADOS, exist_ok=True)
 
     _paper_style()
@@ -152,10 +191,13 @@ def modo_simular_plot(dados):
     _savefig(os.path.join(PASTA_RESULTADOS, "Figura_1_original.png"))
     plt.close(fig)
 
+    # ==============================
+    # MUDANÇA:
+    # removido stuck e stuck_at_zero da simulação
+    # porque agora são tratados por algoritmo
+    # ==============================
     config_balanco = {
         "oscilacao": {"duracao_pts": 30, "n_eventos": 18, "amp": 10.0},
-        "stuck": {"duracao_pts": 30, "n_eventos": 24},
-        "stuck_at_zero": {"duracao_pts": 30, "n_eventos": 28},
         "lacuna": {"duracao_pts": 15, "n_eventos": 18},
         "queda": {"duracao_pts": 12, "n_eventos": 18, "delta": -15.0},
     }
@@ -171,8 +213,9 @@ def modo_simular_plot(dados):
     plt.grid(True)
     _savefig(os.path.join(PASTA_RESULTADOS, "Figura_2_com_falhas.png"))
     plt.close(fig)
+    plt.close("all")
 
-    print(f"✅ Figuras 1 e 2 salvas em: {PASTA_RESULTADOS}/")
+    print(f"✅ Figuras 1 e 2 salvas em: {os.path.abspath(PASTA_RESULTADOS)}")
 
 
 # OPÇÃO 3 – SIMULA + TREINA
@@ -189,11 +232,26 @@ def modo_simular_e_treinar(dados):
         print("⚠️ Não há dados no período selecionado.")
         return
 
+    # ==============================
+    # MUDANÇA:
+    # stuck e stuck_at_zero detectados por algoritmo
+    # não passam pelos modelos
+    # ==============================
+    df = detectar_stuck_e_stuck_zero(
+        df,
+        coluna=coluna,
+        min_pontos_stuck=6,   # 1 hora com frequência de 10 min
+        min_pontos_zero=6,
+        tol=1e-9
+    )
+
     # 1) Injeta falhas balanceadas ao longo da série
+    # ==============================
+    # MUDANÇA:
+    # removido stuck e stuck_at_zero da simulação
+    # ==============================
     config_balanco = {
         "oscilacao": {"duracao_pts": 30, "n_eventos": 18, "amp": 10.0},
-        "stuck": {"duracao_pts": 30, "n_eventos": 24},
-        "stuck_at_zero": {"duracao_pts": 30, "n_eventos": 28},
         "lacuna": {"duracao_pts": 15, "n_eventos": 18},
         "queda": {"duracao_pts": 12, "n_eventos": 18, "delta": -15.0},
     }
@@ -209,19 +267,10 @@ def modo_simular_e_treinar(dados):
         modo=LABEL_OSC
     )
 
-    df = injetar_intervalo_por_tempo(
-        df, coluna,
-        fim_serie - pd.Timedelta(minutes=140),
-        fim_serie - pd.Timedelta(minutes=110),
-        modo="stuck"
-    )
-
-    df = injetar_intervalo_por_tempo(
-        df, coluna,
-        fim_serie - pd.Timedelta(minutes=100),
-        fim_serie - pd.Timedelta(minutes=70),
-        modo=LABEL_STUCK_ZERO
-    )
+    # ==============================
+    # MUDANÇA:
+    # removidas as injeções finais de stuck e stuck_at_zero
+    # ==============================
 
     df = injetar_intervalo_por_tempo(
         df, coluna,
@@ -241,7 +290,7 @@ def modo_simular_e_treinar(dados):
     os.makedirs(PASTA_RELATORIOS, exist_ok=True)
     gerar_figuras_falhas(df, coluna)
 
-    print("\nDistribuição de classes no sinal simulado:")
+    print("\nDistribuição de classes no sinal analisado:")
     print(df["label"].value_counts(dropna=False))
 
     nome_base = gerar_nome_base(coluna, ini, fim)
@@ -271,10 +320,10 @@ def modo_simular_e_treinar(dados):
         rotulo_modo="qualquer"
     )
 
-    print(f"\n✅ Resultados salvos em: {PASTA_RESULTADOS}/")
-    print(f"✅ Figuras de falhas salvas em: {PASTA_RELATORIOS}/")
+    print(f"\n✅ Resultados salvos em: {os.path.abspath(PASTA_RESULTADOS)}")
+    print(f"✅ Figuras de falhas salvas em: {os.path.abspath(PASTA_RELATORIOS)}")
 
-    print("\nMelhores configurações por falha:")
+    print("\nMelhores configurações por falha e por modelo:")
     if resultados["melhores_configuracoes"].empty:
         print("⚠️ Nenhuma configuração válida foi encontrada.")
     else:
@@ -284,6 +333,8 @@ def modo_simular_e_treinar(dados):
     print("\nArquivos principais gerados:")
     for k, v in resultados["paths"].items():
         print(f" - {k}: {v}")
+
+    plt.close("all")
 
 
 # MENU PRINCIPAL

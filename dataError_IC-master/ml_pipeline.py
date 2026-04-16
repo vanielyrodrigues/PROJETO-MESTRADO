@@ -1,10 +1,12 @@
-# ml_pipeline.py
-
 import os
 import json
 import math
 import numpy as np
 import pandas as pd
+
+import matplotlib
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 from sklearn.model_selection import TimeSeriesSplit
@@ -17,14 +19,32 @@ from sklearn.metrics import (
     balanced_accuracy_score
 )
 
+# ==============================
+# MUDANÇA: inclusão dos outros modelos
+# ==============================
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
+
 try:
     from xgboost import XGBClassifier
     _HAS_XGB = True
 except Exception:
     _HAS_XGB = False
 
+try:
+    from catboost import CatBoostClassifier
+    _HAS_CAT = True
+except Exception:
+    _HAS_CAT = False
 
-FALHAS_ALVO = ["oscilacao", "stuck", "stuck_at_zero", "lacuna", "queda"]
+
+# ==============================
+# MUDANÇA:
+# removido stuck e stuck_at_zero dos modelos
+# Agora os modelos trabalham apenas com:
+# oscilacao, lacuna e queda
+# ==============================
+FALHAS_ALVO = ["oscilacao", "lacuna", "queda"]
 
 
 def _paper_style():
@@ -187,12 +207,10 @@ def montar_dataset_janelas(
     passo: int,
     rotulo_modo: str = "fim"
 ) -> pd.DataFrame:
-    """
-    rotulo_modo:
+    """    rotulo_modo:
       - 'fim'      -> y=1 se a última leitura da janela for da falha alvo
       - 'qualquer' -> y=1 se qualquer ponto da janela contiver a falha alvo
-      - 'maioria'  -> y=1 se mais de 50% da janela for da falha alvo
-    """
+      - 'maioria'  -> y=1 se mais de 50% da janela for da falha alvo    """
 
     df = df.copy().sort_values("Datetime").reset_index(drop=True)
 
@@ -234,7 +252,6 @@ def montar_dataset_janelas(
 
         ini += passo
         fim = ini + janela
-
 
     # IMPLEMENTAÇÃO ANTIGA
 
@@ -340,21 +357,76 @@ def _plot_comparacao_janelas(df_resultados_falha: pd.DataFrame, falha: str, past
     return path_png
 
 
-def avaliar_xgb_por_falha_e_janela(
+# ==============================
+# MUDANÇA:
+# função auxiliar para instanciar cada modelo
+# ==============================
+def _criar_modelo(nome_modelo: str, ratio: float):
+    nome_modelo = nome_modelo.lower()
+
+    if nome_modelo == "xgboost":
+        if not _HAS_XGB:
+            return None
+        return XGBClassifier(
+            n_estimators=400,
+            max_depth=5,
+            learning_rate=0.05,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            reg_lambda=1.0,
+            random_state=42,
+            n_jobs=-1,
+            eval_metric="logloss",
+            scale_pos_weight=max(1.0, float(ratio))
+        )
+
+    if nome_modelo == "random_forest":
+        return RandomForestClassifier(
+            n_estimators=300,
+            max_depth=None,
+            random_state=42,
+            n_jobs=-1,
+            class_weight="balanced_subsample"
+        )
+
+    if nome_modelo == "mlp":
+        return MLPClassifier(
+            hidden_layer_sizes=(64, 32),
+            activation="relu",
+            solver="adam",
+            alpha=0.0001,
+            learning_rate="adaptive",
+            max_iter=600,
+            random_state=42
+        )
+
+    if nome_modelo == "catboost":
+        if not _HAS_CAT:
+            return None
+        return CatBoostClassifier(
+            iterations=400,
+            depth=6,
+            learning_rate=0.05,
+            loss_function="Logloss",
+            eval_metric="F1",
+            random_seed=42,
+            verbose=False
+        )
+
+    raise ValueError(f"Modelo não suportado: {nome_modelo}")
+
+
+def avaliar_modelos_por_falha_e_janela(
     df_base: pd.DataFrame,
     coluna: str,
     janelas=None,
     passos_cfg=None,
+    modelos=None,
     n_splits: int = 5,
     pasta_out: str = "resultados",
     nome_base: str = "saida",
     rotulo_modo: str = "fim"
 ):
-    if not _HAS_XGB:
-        raise ImportError(
-            "XGBoost não está instalado. Instale com: pip install xgboost"
-        )
-
     os.makedirs(pasta_out, exist_ok=True)
 
     if janelas is None:
@@ -363,168 +435,165 @@ def avaliar_xgb_por_falha_e_janela(
     if passos_cfg is None:
         passos_cfg = [5, 10, "n/3"]
 
+    # ==============================
+    # MUDANÇA:
+    # inclusão dos vários modelos
+    # ==============================
+    if modelos is None:
+        modelos = ["xgboost", "random_forest", "mlp", "catboost"]
+
     resultados = []
     melhores_rows = []
     paths_comparacao = {}
 
     for falha in FALHAS_ALVO:
-        melhor_score = -1.0
-        melhor_row = None
+        for nome_modelo in modelos:
+            melhor_score = -1.0
+            melhor_row = None
 
-        for janela in janelas:
-            for passo_cfg in passos_cfg:
-                passo = _resolver_passo(passo_cfg, janela)
+            for janela in janelas:
+                for passo_cfg in passos_cfg:
+                    passo = _resolver_passo(passo_cfg, janela)
 
-                # Evita passos maiores que a janela
-                if passo > janela:
-                    continue
-
-                ds = montar_dataset_janelas(
-                    df=df_base,
-                    coluna=coluna,
-                    falha_alvo=falha,
-                    janela=janela,
-                    passo=passo,
-                    rotulo_modo=rotulo_modo
-                )
-
-                if ds.empty:
-                    continue
-
-                y = ds["y"].astype(int).to_numpy()
-
-                X = ds.drop(
-                    columns=[
-                        "y", "falha_alvo", "janela", "passo",
-                        "Datetime_ini", "Datetime_fim"
-                    ],
-                    errors="ignore"
-                ).copy()
-
-                for c in X.columns:
-                    X[c] = pd.to_numeric(X[c], errors="coerce")
-                X = X.fillna(0)
-
-                positivos = int(y.sum())
-                negativos = int((y == 0).sum())
-
-                if positivos < 2 or negativos < 2:
-                    continue
-
-                # Se tiver poucas amostras, reduz automaticamente os splits
-                n_splits_ajustado = min(n_splits, max(2, len(X) // 20))
-                if n_splits_ajustado < 2:
-                    continue
-
-                tscv = TimeSeriesSplit(n_splits=n_splits_ajustado)
-
-                y_true_all = []
-                y_pred_all = []
-                splits_validos = 0
-
-                for split_id, (tr_idx, te_idx) in enumerate(tscv.split(X), start=1):
-                    Xtr, Xte = X.iloc[tr_idx], X.iloc[te_idx]
-                    ytr, yte = y[tr_idx], y[te_idx]
-
-                    if len(np.unique(ytr)) < 2:
-                        continue
-                    if len(np.unique(yte)) < 2:
+                    # Evita passos maiores que a janela
+                    if passo > janela:
                         continue
 
-                    # ANTES:
-                    # ratio = (ytr == 0).sum() / max(1, (ytr == 1).sum())
-
-                    # AGORA:
-                    # reforço no peso da classe positiva (falha)
-                    pos = int((ytr == 1).sum())
-                    neg = int((ytr == 0).sum())
-                    ratio = neg / max(1, pos)
-                    ratio = ratio * 1.5
-
-                    modelo = XGBClassifier(
-                        n_estimators=400,
-                        max_depth=5,
-                        learning_rate=0.05,
-                        subsample=0.9,
-                        colsample_bytree=0.9,
-                        reg_lambda=1.0,
-                        random_state=42,
-                        n_jobs=-1,
-                        eval_metric="logloss",
-                        scale_pos_weight=max(1.0, float(ratio))
+                    ds = montar_dataset_janelas(
+                        df=df_base,
+                        coluna=coluna,
+                        falha_alvo=falha,
+                        janela=janela,
+                        passo=passo,
+                        rotulo_modo=rotulo_modo
                     )
 
-                    modelo.fit(Xtr, ytr)
+                    if ds.empty:
+                        continue
 
-                    # ANTES:
-                    # ypred = modelo.predict(Xte).astype(int)
+                    y = ds["y"].astype(int).to_numpy()
 
-                    # AGORA:
-                    # uso de probabilidade com limiar menor para detectar mais falhas
-                    probs = modelo.predict_proba(Xte)[:, 1]
-                    ypred = (probs >= 0.30).astype(int)
+                    X = ds.drop(
+                        columns=[
+                            "y", "falha_alvo", "janela", "passo",
+                            "Datetime_ini", "Datetime_fim"
+                        ],
+                        errors="ignore"
+                    ).copy()
 
-                    y_true_all.extend(yte.tolist())
-                    y_pred_all.extend(ypred.tolist())
-                    splits_validos += 1
+                    for c in X.columns:
+                        X[c] = pd.to_numeric(X[c], errors="coerce")
+                    X = X.fillna(0)
 
-                if splits_validos == 0:
-                    continue
+                    positivos = int(y.sum())
+                    negativos = int((y == 0).sum())
 
-                y_true_all = np.array(y_true_all, dtype=int)
-                y_pred_all = np.array(y_pred_all, dtype=int)
+                    if positivos < 2 or negativos < 2:
+                        continue
 
-                cm = confusion_matrix(y_true_all, y_pred_all, labels=[0, 1])
+                    # Se tiver poucas amostras, reduz automaticamente os splits
+                    n_splits_ajustado = min(n_splits, max(2, len(X) // 20))
+                    if n_splits_ajustado < 2:
+                        continue
 
-                tn, fp, fn, tp = cm.ravel()
-                specificity = tn / (tn + fp + 1e-9)
+                    tscv = TimeSeriesSplit(n_splits=n_splits_ajustado)
 
-                row = {
-                    "falha": falha,
-                    "janela": int(janela),
-                    "passo_cfg": str(passo_cfg),
-                    "passo_real": int(passo),
-                    "amostras": int(len(ds)),
-                    "positivos": int(positivos),
-                    "negativos": int(negativos),
-                    "splits_validos": int(splits_validos),
-                    "accuracy": float(accuracy_score(y_true_all, y_pred_all)),
-                    "balanced_accuracy": float(balanced_accuracy_score(y_true_all, y_pred_all)),
-                    "precision_pos": float(precision_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
-                    "recall_pos": float(recall_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
-                    "f1_pos": float(f1_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
-                    "specificity": float(specificity),
-                    "tn": int(tn),
-                    "fp": int(fp),
-                    "fn": int(fn),
-                    "tp": int(tp),
-                }
-                resultados.append(row)
+                    y_true_all = []
+                    y_pred_all = []
+                    splits_validos = 0
 
-                # ANTES:
-                # if row["f1_pos"] > melhor_f1:
+                    for split_id, (tr_idx, te_idx) in enumerate(tscv.split(X), start=1):
+                        Xtr, Xte = X.iloc[tr_idx], X.iloc[te_idx]
+                        ytr, yte = y[tr_idx], y[te_idx]
 
-                # AGORA:
-                # score combinando F1 e recall para priorizar detecção da falha
-                score = 0.7 * row["f1_pos"] + 0.3 * row["recall_pos"]
+                        if len(np.unique(ytr)) < 2:
+                            continue
+                        if len(np.unique(yte)) < 2:
+                            continue
 
-                if score > melhor_score:
-                    melhor_score = score
-                    melhor_row = row.copy()
+                        pos = int((ytr == 1).sum())
+                        neg = int((ytr == 0).sum())
+                        ratio = neg / max(1, pos)
+                        ratio = ratio * 1.5
 
-                    path_cm = os.path.join(
-                        pasta_out,
-                        f"{nome_base}_{falha}_jan{janela}_passo{passo}_cm.png"
-                    )
-                    _plot_confusion_binaria(
-                        cm,
-                        f"{falha} | janela={janela} | passo={passo}",
-                        path_cm
-                    )
-                    melhor_row["path_cm"] = path_cm
+                        modelo = _criar_modelo(nome_modelo, ratio)
+                        if modelo is None:
+                            continue
 
-        if melhor_row is not None:
-            melhores_rows.append(melhor_row)
+                        modelo.fit(Xtr, ytr)
+
+                        # ==============================
+                        # MUDANÇA:
+                        # limiar especial só para XGBoost
+                        # nos demais modelos usa predict normal
+                        # ==============================
+                        if nome_modelo.lower() == "xgboost":
+                            probs = modelo.predict_proba(Xte)[:, 1]
+                            ypred = (probs >= 0.30).astype(int)
+                        elif nome_modelo.lower() == "catboost":
+                            probs = modelo.predict_proba(Xte)[:, 1]
+                            ypred = (probs >= 0.50).astype(int)
+                        else:
+                            ypred = modelo.predict(Xte).astype(int)
+
+                        y_true_all.extend(yte.tolist())
+                        y_pred_all.extend(ypred.tolist())
+                        splits_validos += 1
+
+                    if splits_validos == 0:
+                        continue
+
+                    y_true_all = np.array(y_true_all, dtype=int)
+                    y_pred_all = np.array(y_pred_all, dtype=int)
+
+                    cm = confusion_matrix(y_true_all, y_pred_all, labels=[0, 1])
+
+                    tn, fp, fn, tp = cm.ravel()
+                    specificity = tn / (tn + fp + 1e-9)
+
+                    row = {
+                        "modelo": nome_modelo,
+                        "falha": falha,
+                        "janela": int(janela),
+                        "passo_cfg": str(passo_cfg),
+                        "passo_real": int(passo),
+                        "amostras": int(len(ds)),
+                        "positivos": int(positivos),
+                        "negativos": int(negativos),
+                        "splits_validos": int(splits_validos),
+                        "accuracy": float(accuracy_score(y_true_all, y_pred_all)),
+                        "balanced_accuracy": float(balanced_accuracy_score(y_true_all, y_pred_all)),
+                        "precision_pos": float(precision_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
+                        "recall_pos": float(recall_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
+                        "f1_pos": float(f1_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
+                        "specificity": float(specificity),
+                        "tn": int(tn),
+                        "fp": int(fp),
+                        "fn": int(fn),
+                        "tp": int(tp),
+                    }
+                    resultados.append(row)
+
+                    # score combinando F1 e recall para priorizar detecção da falha
+                    score = 0.7 * row["f1_pos"] + 0.3 * row["recall_pos"]
+
+                    if score > melhor_score:
+                        melhor_score = score
+                        melhor_row = row.copy()
+
+                        path_cm = os.path.join(
+                            pasta_out,
+                            f"{nome_base}_{nome_modelo}_{falha}_jan{janela}_passo{passo}_cm.png"
+                        )
+                        _plot_confusion_binaria(
+                            cm,
+                            f"{nome_modelo} | {falha} | janela={janela} | passo={passo}",
+                            path_cm
+                        )
+                        melhor_row["path_cm"] = path_cm
+
+            if melhor_row is not None:
+                melhores_rows.append(melhor_row)
 
     df_resultados = pd.DataFrame(resultados)
     df_melhores = pd.DataFrame(melhores_rows)
@@ -535,24 +604,83 @@ def avaliar_xgb_por_falha_e_janela(
 
     if not df_resultados.empty:
         df_resultados = df_resultados.sort_values(
-            ["falha", "f1_pos", "recall_pos", "precision_pos"],
-            ascending=[True, False, False, False]
+            ["modelo", "falha", "janela", "passo_real"],
+            ascending=[True, True, True, True]
         ).reset_index(drop=True)
         df_resultados.to_csv(path_resultados, index=False)
 
-        # Gera gráfico comparando janelas por falha
+        # ==============================
+        # MUDANÇA:
+        # gera tabelas separadas no formato mais próximo do que o professor pediu
+        # uma por falha + modelo + janela
+        # ==============================
+        pasta_tabelas = os.path.join(pasta_out, "tabelas_metricas")
+        os.makedirs(pasta_tabelas, exist_ok=True)
+
         for falha in FALHAS_ALVO:
-            df_falha = df_resultados[df_resultados["falha"] == falha].copy()
-            path_cmp = _plot_comparacao_janelas(df_falha, falha, pasta_out, nome_base)
-            if path_cmp:
-                paths_comparacao[falha] = path_cmp
+            for nome_modelo in modelos:
+                df_sub = df_resultados[
+                    (df_resultados["falha"] == falha) &
+                    (df_resultados["modelo"] == nome_modelo)
+                ].copy()
+
+                if df_sub.empty:
+                    continue
+
+                for janela in sorted(df_sub["janela"].unique()):
+                    bloco = df_sub[df_sub["janela"] == janela].copy()
+                    if bloco.empty:
+                        continue
+
+                    tabela = bloco[[
+                        "passo_real", "tp", "fp", "tn", "fn",
+                        "accuracy", "precision_pos", "recall_pos", "f1_pos", "balanced_accuracy"
+                    ]].copy()
+
+                    tabela = tabela.rename(columns={
+                        "passo_real": "Deslocamento",
+                        "tp": "TP",
+                        "fp": "FP",
+                        "tn": "TN",
+                        "fn": "FN",
+                        "accuracy": "ACC",
+                        "precision_pos": "Precision",
+                        "recall_pos": "Recall",
+                        "f1_pos": "F1",
+                        "balanced_accuracy": "Balanced_ACC"
+                    })
+
+                    nome_csv = f"{nome_base}_{falha}_{nome_modelo}_janela_{janela}.csv"
+                    tabela.to_csv(os.path.join(pasta_tabelas, nome_csv), index=False)
+
+        # Gera gráfico comparando janelas por falha e modelo
+        for falha in FALHAS_ALVO:
+            for nome_modelo in modelos:
+                df_falha = df_resultados[
+                    (df_resultados["falha"] == falha) &
+                    (df_resultados["modelo"] == nome_modelo)
+                ].copy()
+
+                if df_falha.empty:
+                    continue
+
+                path_cmp = _plot_comparacao_janelas(
+                    df_falha,
+                    f"{falha}_{nome_modelo}",
+                    pasta_out,
+                    nome_base
+                )
+                if path_cmp:
+                    paths_comparacao[f"{falha}_{nome_modelo}"] = path_cmp
 
     if not df_melhores.empty:
-        df_melhores = df_melhores.sort_values("falha").reset_index(drop=True)
+        df_melhores = df_melhores.sort_values(["modelo", "falha"]).reset_index(drop=True)
         df_melhores.to_csv(path_melhores, index=False)
 
         with open(path_json, "w", encoding="utf-8") as f:
             json.dump(df_melhores.to_dict(orient="records"), f, ensure_ascii=False, indent=2)
+
+    plt.close("all")
 
     return {
         "resultados_todos": df_resultados,
@@ -561,6 +689,35 @@ def avaliar_xgb_por_falha_e_janela(
             "resultados_todos_csv": path_resultados,
             "melhores_configuracoes_csv": path_melhores,
             "melhores_configuracoes_json": path_json,
-            "comparacao_janelas": paths_comparacao
+            "comparacao_janelas": paths_comparacao,
+            "pasta_tabelas_metricas": os.path.join(pasta_out, "tabelas_metricas")
         }
     }
+
+
+# ==============================
+# MANTIDO:
+# nome antigo da função para não quebrar código antigo
+# Agora ela chama a nova função com vários modelos
+# ==============================
+def avaliar_xgb_por_falha_e_janela(
+    df_base: pd.DataFrame,
+    coluna: str,
+    janelas=None,
+    passos_cfg=None,
+    n_splits: int = 5,
+    pasta_out: str = "resultados",
+    nome_base: str = "saida",
+    rotulo_modo: str = "fim"
+):
+    return avaliar_modelos_por_falha_e_janela(
+        df_base=df_base,
+        coluna=coluna,
+        janelas=janelas,
+        passos_cfg=passos_cfg,
+        modelos=["xgboost", "random_forest", "mlp", "catboost"],
+        n_splits=n_splits,
+        pasta_out=pasta_out,
+        nome_base=nome_base,
+        rotulo_modo=rotulo_modo
+    )
