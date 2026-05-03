@@ -1,6 +1,6 @@
+#ml_pipeline
 import os
 import json
-import math
 import numpy as np
 import pandas as pd
 
@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import (
     confusion_matrix,
     precision_score,
@@ -19,9 +18,6 @@ from sklearn.metrics import (
     balanced_accuracy_score
 )
 
-# ==============================
-# MUDANÇA: inclusão dos outros modelos
-# ==============================
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 
@@ -38,12 +34,6 @@ except Exception:
     _HAS_CAT = False
 
 
-# ==============================
-# MUDANÇA:
-# removido stuck e stuck_at_zero dos modelos
-# Agora os modelos trabalham apenas com:
-# oscilacao, lacuna e queda
-# ==============================
 FALHAS_ALVO = ["oscilacao", "lacuna", "queda"]
 
 
@@ -79,8 +69,7 @@ def _maior_sequencia_true(mask_bool) -> int:
     for v in mask_bool:
         if bool(v):
             atual += 1
-            if atual > maior:
-                maior = atual
+            maior = max(maior, atual)
         else:
             atual = 0
     return maior
@@ -108,13 +97,13 @@ def extrair_atributos_janela(sub: pd.DataFrame, coluna: str) -> dict:
     serie = _to_numeric_safe(sub[coluna]).astype(float)
     vals = serie.to_numpy(dtype=float)
 
-    feats = {}
+    feats = {
+        "n": len(vals),
+        "nan_count": int(np.isnan(vals).sum()),
+        "nan_prop": float(np.isnan(vals).mean()) if len(vals) else 0.0,
+    }
 
-    feats["n"] = len(vals)
-    feats["nan_count"] = int(np.isnan(vals).sum())
-    feats["nan_prop"] = float(np.isnan(vals).mean())
-
-    if np.isnan(vals).all():
+    if len(vals) == 0 or np.isnan(vals).all():
         feats.update({
             "mean": 0.0,
             "std": 0.0,
@@ -138,15 +127,11 @@ def extrair_atributos_janela(sub: pd.DataFrame, coluna: str) -> dict:
             "fim_is_nan": 1.0,
             "fim_is_zero": 0.0,
         })
-
         for i in range(len(vals)):
             feats[f"lag_{i+1}"] = 0.0
-
         return feats
 
-    # preenche NaN localmente apenas para cálculo estatístico
-    s_fill = pd.Series(vals).interpolate(limit_direction="both")
-    s_fill = s_fill.ffill().bfill()
+    s_fill = pd.Series(vals).interpolate(limit_direction="both").ffill().bfill()
     vals_fill = s_fill.to_numpy(dtype=float)
 
     diffs = np.diff(vals_fill)
@@ -192,7 +177,6 @@ def extrair_atributos_janela(sub: pd.DataFrame, coluna: str) -> dict:
         "fim_is_zero": float(np.isclose(vals_fill[-1], 0.0, atol=1e-9)),
     })
 
-    # usa os valores da própria janela como lags explícitos
     for i, v in enumerate(vals_fill):
         feats[f"lag_{i+1}"] = float(v)
 
@@ -207,10 +191,12 @@ def montar_dataset_janelas(
     passo: int,
     rotulo_modo: str = "fim"
 ) -> pd.DataFrame:
-    """    rotulo_modo:
+    """
+    rotulo_modo:
       - 'fim'      -> y=1 se a última leitura da janela for da falha alvo
       - 'qualquer' -> y=1 se qualquer ponto da janela contiver a falha alvo
-      - 'maioria'  -> y=1 se mais de 50% da janela for da falha alvo    """
+      - 'maioria'  -> y=1 se mais de 50% da janela for da falha alvo
+    """
 
     df = df.copy().sort_values("Datetime").reset_index(drop=True)
 
@@ -219,11 +205,6 @@ def montar_dataset_janelas(
     if len(df) < janela:
         return pd.DataFrame()
 
-    # ==============================
-    # IMPLEMENTAÇÃO NOVA
-    # ==============================
-    # Agora a janela móvel está explícita:
-    # INI, FIM e avanço manual
     ini = 0
     fim = ini + janela
 
@@ -253,26 +234,33 @@ def montar_dataset_janelas(
         ini += passo
         fim = ini + janela
 
-    # IMPLEMENTAÇÃO ANTIGA
-
-    # for fim in range(janela - 1, len(df), passo):
-    #     ini = fim - janela + 1
-    #     sub = df.iloc[ini:fim + 1].copy()
-
     ds = pd.DataFrame(rows)
     if ds.empty:
         return ds
 
-    ds = ds.sort_values("Datetime_fim").reset_index(drop=True)
-    return ds
+    return ds.sort_values("Datetime_fim").reset_index(drop=True)
+
+
+def contar_eventos_binarios(vetor) -> int:
+    """
+    Contagem solicitada pelo professor:
+    sequências consecutivas de 1 contam como um único evento.
+    """
+    normal = True
+    cont = 0
+
+    for valor in vetor:
+        if int(valor) == 1:
+            if normal:
+                cont += 1
+                normal = False
+        else:
+            normal = True
+
+    return int(cont)
 
 
 def _plot_confusion_binaria(cm, titulo, path_png):
-    """
-    MELHORIA:
-    - antes a matriz mostrava apenas valores absolutos
-    - agora mostra também proporção normalizada por linha
-    """
     _paper_style()
     fig = plt.figure(figsize=(5.5, 4.6))
     ax = plt.gca()
@@ -306,12 +294,25 @@ def _plot_confusion_binaria(cm, titulo, path_png):
     plt.close(fig)
 
 
+def _plot_predicoes_temporais(ds_teste: pd.DataFrame, y_true, y_pred, falha: str, path_png: str):
+    _paper_style()
+    fig = plt.figure(figsize=(12, 4))
+
+    x = pd.to_datetime(ds_teste["Datetime_fim"])
+    plt.plot(x, y_true, linewidth=1.5, label="Real")
+    plt.plot(x, y_pred, linewidth=1.2, linestyle="--", label="Predito")
+
+    plt.title(f"Eventos reais x detectados – {falha}")
+    plt.xlabel("Tempo final da janela")
+    plt.ylabel("0=Normal | 1=Falha")
+    plt.yticks([0, 1], ["Normal", "Falha"])
+    plt.legend()
+
+    _savefig(path_png)
+    plt.close(fig)
+
+
 def _resolver_passo(passo_cfg, janela):
-    """
-    Permite usar:
-    - inteiro fixo (ex.: 5)
-    - string 'n/3'
-    """
     if isinstance(passo_cfg, str):
         if passo_cfg.lower() == "n/3":
             return max(1, janela // 3)
@@ -320,16 +321,15 @@ def _resolver_passo(passo_cfg, janela):
 
 
 def _plot_comparacao_janelas(df_resultados_falha: pd.DataFrame, falha: str, pasta_out: str, nome_base: str):
-    """
-    Gera gráfico comparando janelas para uma falha.
-    Usa o melhor resultado de cada janela.
-    """
     if df_resultados_falha.empty:
         return None
 
     df_plot = (
         df_resultados_falha
-        .sort_values(["janela", "f1_pos", "recall_pos", "precision_pos"], ascending=[True, False, False, False])
+        .sort_values(
+            ["janela", "f1_pos", "recall_pos", "precision_pos"],
+            ascending=[True, False, False, False]
+        )
         .groupby("janela", as_index=False)
         .first()
         .copy()
@@ -357,10 +357,6 @@ def _plot_comparacao_janelas(df_resultados_falha: pd.DataFrame, falha: str, past
     return path_png
 
 
-# ==============================
-# MUDANÇA:
-# função auxiliar para instanciar cada modelo
-# ==============================
 def _criar_modelo(nome_modelo: str, ratio: float):
     nome_modelo = nome_modelo.lower()
 
@@ -416,17 +412,43 @@ def _criar_modelo(nome_modelo: str, ratio: float):
     raise ValueError(f"Modelo não suportado: {nome_modelo}")
 
 
-def avaliar_modelos_por_falha_e_janela(
-    df_base: pd.DataFrame,
+def _preparar_X_y(ds: pd.DataFrame):
+    y = ds["y"].astype(int).to_numpy()
+
+    X = ds.drop(
+        columns=[
+            "y", "falha_alvo", "janela", "passo",
+            "Datetime_ini", "Datetime_fim"
+        ],
+        errors="ignore"
+    ).copy()
+
+    for c in X.columns:
+        X[c] = pd.to_numeric(X[c], errors="coerce")
+    X = X.fillna(0)
+
+    return X, y
+
+
+def avaliar_modelos_treino_teste_eventos(
+    df_treino: pd.DataFrame,
+    df_teste: pd.DataFrame,
     coluna: str,
     janelas=None,
     passos_cfg=None,
     modelos=None,
-    n_splits: int = 5,
     pasta_out: str = "resultados",
     nome_base: str = "saida",
-    rotulo_modo: str = "fim"
+    rotulo_modo: str = "fim",
+    nome_teste: str = "teste"
 ):
+    """
+    Fluxo novo pedido pelo professor:
+    1) Treina em uma base com falhas.
+    2) Aplica na base SEM falhas ou COM falhas.
+    3) Conta eventos contínuos, e não apenas janelas.
+    """
+
     os.makedirs(pasta_out, exist_ok=True)
 
     if janelas is None:
@@ -435,16 +457,13 @@ def avaliar_modelos_por_falha_e_janela(
     if passos_cfg is None:
         passos_cfg = [5, 10, "n/3"]
 
-    # ==============================
-    # MUDANÇA:
-    # inclusão dos vários modelos
-    # ==============================
     if modelos is None:
         modelos = ["xgboost", "random_forest", "mlp", "catboost"]
 
     resultados = []
     melhores_rows = []
     paths_comparacao = {}
+    paths_temporais = {}
 
     for falha in FALHAS_ALVO:
         for nome_modelo in modelos:
@@ -455,12 +474,11 @@ def avaliar_modelos_por_falha_e_janela(
                 for passo_cfg in passos_cfg:
                     passo = _resolver_passo(passo_cfg, janela)
 
-                    # Evita passos maiores que a janela
                     if passo > janela:
                         continue
 
-                    ds = montar_dataset_janelas(
-                        df=df_base,
+                    ds_treino = montar_dataset_janelas(
+                        df=df_treino,
                         coluna=coluna,
                         falha_alvo=falha,
                         janela=janela,
@@ -468,104 +486,77 @@ def avaliar_modelos_por_falha_e_janela(
                         rotulo_modo=rotulo_modo
                     )
 
-                    if ds.empty:
+                    ds_teste = montar_dataset_janelas(
+                        df=df_teste,
+                        coluna=coluna,
+                        falha_alvo=falha,
+                        janela=janela,
+                        passo=passo,
+                        rotulo_modo=rotulo_modo
+                    )
+
+                    if ds_treino.empty or ds_teste.empty:
                         continue
 
-                    y = ds["y"].astype(int).to_numpy()
+                    Xtr, ytr = _preparar_X_y(ds_treino)
+                    Xte, yte = _preparar_X_y(ds_teste)
 
-                    X = ds.drop(
-                        columns=[
-                            "y", "falha_alvo", "janela", "passo",
-                            "Datetime_ini", "Datetime_fim"
-                        ],
-                        errors="ignore"
-                    ).copy()
-
-                    for c in X.columns:
-                        X[c] = pd.to_numeric(X[c], errors="coerce")
-                    X = X.fillna(0)
-
-                    positivos = int(y.sum())
-                    negativos = int((y == 0).sum())
+                    positivos = int(ytr.sum())
+                    negativos = int((ytr == 0).sum())
 
                     if positivos < 2 or negativos < 2:
                         continue
 
-                    # Se tiver poucas amostras, reduz automaticamente os splits
-                    n_splits_ajustado = min(n_splits, max(2, len(X) // 20))
-                    if n_splits_ajustado < 2:
+                    pos = int((ytr == 1).sum())
+                    neg = int((ytr == 0).sum())
+                    ratio = (neg / max(1, pos)) * 1.5
+
+                    modelo = _criar_modelo(nome_modelo, ratio)
+                    if modelo is None:
                         continue
 
-                    tscv = TimeSeriesSplit(n_splits=n_splits_ajustado)
+                    modelo.fit(Xtr, ytr)
 
-                    y_true_all = []
-                    y_pred_all = []
-                    splits_validos = 0
+                    if nome_modelo.lower() == "xgboost":
+                        probs = modelo.predict_proba(Xte)[:, 1]
+                        ypred = (probs >= 0.30).astype(int)
+                    elif nome_modelo.lower() == "catboost":
+                        probs = modelo.predict_proba(Xte)[:, 1]
+                        ypred = (probs >= 0.50).astype(int)
+                    else:
+                        ypred = modelo.predict(Xte).astype(int)
 
-                    for split_id, (tr_idx, te_idx) in enumerate(tscv.split(X), start=1):
-                        Xtr, Xte = X.iloc[tr_idx], X.iloc[te_idx]
-                        ytr, yte = y[tr_idx], y[te_idx]
-
-                        if len(np.unique(ytr)) < 2:
-                            continue
-                        if len(np.unique(yte)) < 2:
-                            continue
-
-                        pos = int((ytr == 1).sum())
-                        neg = int((ytr == 0).sum())
-                        ratio = neg / max(1, pos)
-                        ratio = ratio * 1.5
-
-                        modelo = _criar_modelo(nome_modelo, ratio)
-                        if modelo is None:
-                            continue
-
-                        modelo.fit(Xtr, ytr)
-
-                        # ==============================
-                        # MUDANÇA:
-                        # limiar especial só para XGBoost
-                        # nos demais modelos usa predict normal
-                        # ==============================
-                        if nome_modelo.lower() == "xgboost":
-                            probs = modelo.predict_proba(Xte)[:, 1]
-                            ypred = (probs >= 0.30).astype(int)
-                        elif nome_modelo.lower() == "catboost":
-                            probs = modelo.predict_proba(Xte)[:, 1]
-                            ypred = (probs >= 0.50).astype(int)
-                        else:
-                            ypred = modelo.predict(Xte).astype(int)
-
-                        y_true_all.extend(yte.tolist())
-                        y_pred_all.extend(ypred.tolist())
-                        splits_validos += 1
-
-                    if splits_validos == 0:
-                        continue
-
-                    y_true_all = np.array(y_true_all, dtype=int)
-                    y_pred_all = np.array(y_pred_all, dtype=int)
-
-                    cm = confusion_matrix(y_true_all, y_pred_all, labels=[0, 1])
-
+                    cm = confusion_matrix(yte, ypred, labels=[0, 1])
                     tn, fp, fn, tp = cm.ravel()
+
+                    eventos_reais = contar_eventos_binarios(yte)
+                    eventos_detectados = contar_eventos_binarios(ypred)
+                    diferenca_eventos = eventos_detectados - eventos_reais
+
                     specificity = tn / (tn + fp + 1e-9)
 
+                    # Quando não há positivos no teste sem erro, algumas métricas ficam naturalmente 0.
                     row = {
+                        "teste": nome_teste,
                         "modelo": nome_modelo,
                         "falha": falha,
                         "janela": int(janela),
                         "passo_cfg": str(passo_cfg),
                         "passo_real": int(passo),
-                        "amostras": int(len(ds)),
-                        "positivos": int(positivos),
-                        "negativos": int(negativos),
-                        "splits_validos": int(splits_validos),
-                        "accuracy": float(accuracy_score(y_true_all, y_pred_all)),
-                        "balanced_accuracy": float(balanced_accuracy_score(y_true_all, y_pred_all)),
-                        "precision_pos": float(precision_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
-                        "recall_pos": float(recall_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
-                        "f1_pos": float(f1_score(y_true_all, y_pred_all, pos_label=1, zero_division=0)),
+                        "amostras_treino": int(len(ds_treino)),
+                        "amostras_teste": int(len(ds_teste)),
+                        "positivos_treino": int(positivos),
+                        "negativos_treino": int(negativos),
+                        "positivos_teste": int(yte.sum()),
+                        "negativos_teste": int((yte == 0).sum()),
+                        "eventos_reais_teste": int(eventos_reais),
+                        "eventos_detectados": int(eventos_detectados),
+                        "diferenca_eventos": int(diferenca_eventos),
+                        "accuracy": float(accuracy_score(yte, ypred)),
+                        "balanced_accuracy": float(balanced_accuracy_score(yte, ypred)),
+                        "precision_pos": float(precision_score(yte, ypred, pos_label=1, zero_division=0)),
+                        "recall_pos": float(recall_score(yte, ypred, pos_label=1, zero_division=0)),
+                        "f1_pos": float(f1_score(yte, ypred, pos_label=1, zero_division=0)),
                         "specificity": float(specificity),
                         "tn": int(tn),
                         "fp": int(fp),
@@ -574,8 +565,12 @@ def avaliar_modelos_por_falha_e_janela(
                     }
                     resultados.append(row)
 
-                    # score combinando F1 e recall para priorizar detecção da falha
-                    score = 0.7 * row["f1_pos"] + 0.3 * row["recall_pos"]
+                    # Para teste com erro, prioriza F1/Recall.
+                    # Para teste sem erro, prioriza poucos falsos positivos e eventos_detectados=0.
+                    if int(yte.sum()) == 0:
+                        score = row["accuracy"] - (0.05 * eventos_detectados) - (0.01 * fp)
+                    else:
+                        score = 0.7 * row["f1_pos"] + 0.3 * row["recall_pos"] - (0.03 * abs(diferenca_eventos))
 
                     if score > melhor_score:
                         melhor_score = score
@@ -583,14 +578,22 @@ def avaliar_modelos_por_falha_e_janela(
 
                         path_cm = os.path.join(
                             pasta_out,
-                            f"{nome_base}_{nome_modelo}_{falha}_jan{janela}_passo{passo}_cm.png"
+                            f"{nome_base}_{nome_teste}_{nome_modelo}_{falha}_jan{janela}_passo{passo}_cm.png"
                         )
                         _plot_confusion_binaria(
                             cm,
-                            f"{nome_modelo} | {falha} | janela={janela} | passo={passo}",
+                            f"{nome_teste} | {nome_modelo} | {falha} | janela={janela} | passo={passo}",
                             path_cm
                         )
                         melhor_row["path_cm"] = path_cm
+
+                        path_pred = os.path.join(
+                            pasta_out,
+                            f"{nome_base}_{nome_teste}_{nome_modelo}_{falha}_jan{janela}_passo{passo}_eventos.png"
+                        )
+                        _plot_predicoes_temporais(ds_teste, yte, ypred, falha, path_pred)
+                        melhor_row["path_eventos"] = path_pred
+                        paths_temporais[f"{nome_teste}_{nome_modelo}_{falha}"] = path_pred
 
             if melhor_row is not None:
                 melhores_rows.append(melhor_row)
@@ -598,22 +601,17 @@ def avaliar_modelos_por_falha_e_janela(
     df_resultados = pd.DataFrame(resultados)
     df_melhores = pd.DataFrame(melhores_rows)
 
-    path_resultados = os.path.join(pasta_out, f"{nome_base}_resultados_todos.csv")
-    path_melhores = os.path.join(pasta_out, f"{nome_base}_melhores_configuracoes.csv")
-    path_json = os.path.join(pasta_out, f"{nome_base}_melhores_configuracoes.json")
+    path_resultados = os.path.join(pasta_out, f"{nome_base}_{nome_teste}_resultados_todos.csv")
+    path_melhores = os.path.join(pasta_out, f"{nome_base}_{nome_teste}_melhores_configuracoes.csv")
+    path_json = os.path.join(pasta_out, f"{nome_base}_{nome_teste}_melhores_configuracoes.json")
 
     if not df_resultados.empty:
         df_resultados = df_resultados.sort_values(
-            ["modelo", "falha", "janela", "passo_real"],
-            ascending=[True, True, True, True]
+            ["teste", "modelo", "falha", "janela", "passo_real"],
+            ascending=[True, True, True, True, True]
         ).reset_index(drop=True)
         df_resultados.to_csv(path_resultados, index=False)
 
-        # ==============================
-        # MUDANÇA:
-        # gera tabelas separadas no formato mais próximo do que o professor pediu
-        # uma por falha + modelo + janela
-        # ==============================
         pasta_tabelas = os.path.join(pasta_out, "tabelas_metricas")
         os.makedirs(pasta_tabelas, exist_ok=True)
 
@@ -633,12 +631,16 @@ def avaliar_modelos_por_falha_e_janela(
                         continue
 
                     tabela = bloco[[
-                        "passo_real", "tp", "fp", "tn", "fn",
+                        "passo_real", "eventos_reais_teste", "eventos_detectados", "diferenca_eventos",
+                        "tp", "fp", "tn", "fn",
                         "accuracy", "precision_pos", "recall_pos", "f1_pos", "balanced_accuracy"
                     ]].copy()
 
                     tabela = tabela.rename(columns={
                         "passo_real": "Deslocamento",
+                        "eventos_reais_teste": "Eventos_reais",
+                        "eventos_detectados": "Eventos_detectados",
+                        "diferenca_eventos": "Diferenca_eventos",
                         "tp": "TP",
                         "fp": "FP",
                         "tn": "TN",
@@ -650,10 +652,9 @@ def avaliar_modelos_por_falha_e_janela(
                         "balanced_accuracy": "Balanced_ACC"
                     })
 
-                    nome_csv = f"{nome_base}_{falha}_{nome_modelo}_janela_{janela}.csv"
+                    nome_csv = f"{nome_base}_{nome_teste}_{falha}_{nome_modelo}_janela_{janela}.csv"
                     tabela.to_csv(os.path.join(pasta_tabelas, nome_csv), index=False)
 
-        # Gera gráfico comparando janelas por falha e modelo
         for falha in FALHAS_ALVO:
             for nome_modelo in modelos:
                 df_falha = df_resultados[
@@ -666,15 +667,15 @@ def avaliar_modelos_por_falha_e_janela(
 
                 path_cmp = _plot_comparacao_janelas(
                     df_falha,
-                    f"{falha}_{nome_modelo}",
+                    f"{nome_teste}_{falha}_{nome_modelo}",
                     pasta_out,
                     nome_base
                 )
                 if path_cmp:
-                    paths_comparacao[f"{falha}_{nome_modelo}"] = path_cmp
+                    paths_comparacao[f"{nome_teste}_{falha}_{nome_modelo}"] = path_cmp
 
     if not df_melhores.empty:
-        df_melhores = df_melhores.sort_values(["modelo", "falha"]).reset_index(drop=True)
+        df_melhores = df_melhores.sort_values(["teste", "modelo", "falha"]).reset_index(drop=True)
         df_melhores.to_csv(path_melhores, index=False)
 
         with open(path_json, "w", encoding="utf-8") as f:
@@ -690,16 +691,41 @@ def avaliar_modelos_por_falha_e_janela(
             "melhores_configuracoes_csv": path_melhores,
             "melhores_configuracoes_json": path_json,
             "comparacao_janelas": paths_comparacao,
+            "predicoes_temporais": paths_temporais,
             "pasta_tabelas_metricas": os.path.join(pasta_out, "tabelas_metricas")
         }
     }
 
 
-# ==============================
-# MANTIDO:
-# nome antigo da função para não quebrar código antigo
-# Agora ela chama a nova função com vários modelos
-# ==============================
+def avaliar_modelos_por_falha_e_janela(
+    df_base: pd.DataFrame,
+    coluna: str,
+    janelas=None,
+    passos_cfg=None,
+    modelos=None,
+    n_splits: int = 5,
+    pasta_out: str = "resultados",
+    nome_base: str = "saida",
+    rotulo_modo: str = "fim"
+):
+    """
+    Compatibilidade com o código antigo.
+    Agora usa a própria base como treino e teste.
+    """
+    return avaliar_modelos_treino_teste_eventos(
+        df_treino=df_base,
+        df_teste=df_base,
+        coluna=coluna,
+        janelas=janelas,
+        passos_cfg=passos_cfg,
+        modelos=modelos,
+        pasta_out=pasta_out,
+        nome_base=nome_base,
+        rotulo_modo=rotulo_modo,
+        nome_teste="validacao_mesma_base"
+    )
+
+
 def avaliar_xgb_por_falha_e_janela(
     df_base: pd.DataFrame,
     coluna: str,
