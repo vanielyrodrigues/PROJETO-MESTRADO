@@ -350,8 +350,15 @@ def reamostrar_e_imputar(df: pd.DataFrame, freq="10min") -> pd.DataFrame:
     cols_num = ["Temperatura", "Umidade", "MP2,5_1", "MP10_1", "MP2,5_2", "MP10_2"]
     cols_existentes = [c for c in cols_num if c in df.columns]
 
+    # Reamostra para frequência regular, mas preserva quais pontos eram observados.
+    # Isso permite que os gráficos gerais não liguem visualmente grandes intervalos sem leituras.
     df_reamostrado = df[cols_existentes].resample(freq).mean()
-    df_imputado = df_reamostrado.interpolate(method="linear")
+
+    for col in cols_existentes:
+        df_reamostrado[f"{col}_observado"] = df_reamostrado[col].notna()
+
+    df_imputado = df_reamostrado.copy()
+    df_imputado[cols_existentes] = df_reamostrado[cols_existentes].interpolate(method="linear")
 
     df_imputado.reset_index(inplace=True)
     return df_imputado

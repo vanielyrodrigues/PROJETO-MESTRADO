@@ -62,26 +62,42 @@ def _trecho_tem_dados(df: pd.DataFrame, col: str, i0: int, i1: int, frac_min_val
     return validos >= minimo
 
 
-def _gerar_inicios_espalhados(
+def _sortear_int_param(valor, rng: np.random.Generator) -> int:
+    """Aceita inteiro fixo ou intervalo (min, max) e retorna valor aleatório."""
+    if isinstance(valor, (list, tuple)) and len(valor) == 2:
+        a, b = int(valor[0]), int(valor[1])
+        return int(rng.integers(min(a, b), max(a, b) + 1))
+    return int(valor)
+
+
+def _sortear_float_param(valor, rng: np.random.Generator) -> float:
+    """Aceita float fixo ou intervalo (min, max) e retorna valor aleatório."""
+    if isinstance(valor, (list, tuple)) and len(valor) == 2:
+        a, b = float(valor[0]), float(valor[1])
+        return float(rng.uniform(min(a, b), max(a, b)))
+    return float(valor)
+
+
+def _gerar_inicios_aleatorios(
     n_total: int,
-    duracao_pts: int,
+    duracao_max: int,
     n_eventos: int,
-    margem: int = 0
+    margem: int = 0,
+    rng: np.random.Generator | None = None
 ) -> list[int]:
-    if n_total <= duracao_pts + 2 or n_eventos <= 0:
+    """Gera posições iniciais aleatórias, evitando concentração sempre nos mesmos pontos."""
+    if rng is None:
+        rng = np.random.default_rng()
+
+    if n_total <= duracao_max + 2 or n_eventos <= 0:
         return []
 
-    ini_min = margem
-    ini_max = n_total - duracao_pts - margem
-    if ini_max <= ini_min:
-        ini_min = 0
-        ini_max = n_total - duracao_pts
+    ini_min = max(0, margem)
+    ini_max = max(ini_min + 1, n_total - duracao_max - margem)
+    candidatos = np.arange(ini_min, ini_max)
+    rng.shuffle(candidatos)
 
-    if ini_max <= ini_min:
-        return []
-
-    posicoes = np.linspace(ini_min, ini_max, n_eventos, dtype=int)
-    return sorted(set(int(p) for p in posicoes))
+    return [int(x) for x in candidatos[: max(1, min(n_eventos * 8, len(candidatos)))]]
 
 
 def _ajustar_inicio_para_janela_livre(
@@ -99,32 +115,53 @@ def _ajustar_inicio_para_janela_livre(
 
     for i0 in candidatos:
         i1 = i0 + duracao_pts
+
         if i0 < 0 or i1 > len(df):
             continue
+
         if not _janela_livre(df, i0, i1):
             continue
+
         if not _trecho_tem_dados(df, col, i0, i1):
             continue
+
         return i0, i1
 
     return None
 
 
-def _inj_stuck_local(df: pd.DataFrame, col: str, i0: int, i1: int, label: str, evento_id: str | None = None) -> pd.DataFrame:
+def _inj_stuck_local(
+    df: pd.DataFrame,
+    col: str,
+    i0: int,
+    i1: int,
+    label: str,
+    evento_id: str | None = None
+) -> pd.DataFrame:
     df = _garantir_colunas_controle(df)
     base = _to_numeric_series(df.loc[i0:i1 - 1, col]).dropna()
+
     if len(base) == 0:
         return df
 
     valor = float(base.iloc[0])
     df.loc[i0:i1 - 1, col] = valor
+
     _marcar_intervalo(df, df.loc[i0, "Datetime"], df.loc[i1 - 1, "Datetime"], label, evento_id)
     return df
 
 
-def _inj_stuck_zero_local(df: pd.DataFrame, col: str, i0: int, i1: int, label: str, evento_id: str | None = None) -> pd.DataFrame:
+def _inj_stuck_zero_local(
+    df: pd.DataFrame,
+    col: str,
+    i0: int,
+    i1: int,
+    label: str,
+    evento_id: str | None = None
+) -> pd.DataFrame:
     df = _garantir_colunas_controle(df)
     df.loc[i0:i1 - 1, col] = 0.0
+
     _marcar_intervalo(df, df.loc[i0, "Datetime"], df.loc[i1 - 1, "Datetime"], label, evento_id)
     return df
 
@@ -135,17 +172,30 @@ def _inj_queda_local(
     i0: int,
     i1: int,
     label: str,
-    delta: float = -15.0,
-    evento_id: str | None = None
+    delta: float | tuple = (-12.0, -4.0),
+    evento_id: str | None = None,
+    rng: np.random.Generator | None = None
 ) -> pd.DataFrame:
     df = _garantir_colunas_controle(df)
     base = _to_numeric_series(df.loc[i0:i1 - 1, col]).to_numpy(dtype=float)
+
     if np.isnan(base).all():
         return df
 
+    if rng is None:
+        rng = np.random.default_rng()
+
     med = np.nanmedian(base)
     base = np.where(np.isnan(base), med, base)
-    df.loc[i0:i1 - 1, col] = base + float(delta)
+
+    delta_evento = _sortear_float_param(delta, rng)
+
+    # Queda sempre deve reduzir a leitura.
+    # Se algum valor positivo for enviado por engano, ele é convertido para negativo.
+    delta_evento = -abs(delta_evento)
+
+    df.loc[i0:i1 - 1, col] = np.maximum(base + delta_evento, 0.0)
+
     _marcar_intervalo(df, df.loc[i0, "Datetime"], df.loc[i1 - 1, "Datetime"], label, evento_id)
     return df
 
@@ -156,29 +206,56 @@ def _inj_oscilacao_local(
     i0: int,
     i1: int,
     label: str,
-    amp: float = 10.0,
-    evento_id: str | None = None
+    amp: float | tuple = (2.0, 4.0),
+    evento_id: str | None = None,
+    rng: np.random.Generator | None = None
 ) -> pd.DataFrame:
     df = _garantir_colunas_controle(df)
     duracao_pts = i1 - i0
+
     base = _to_numeric_series(df.loc[i0:i1 - 1, col]).to_numpy(dtype=float)
+
     if np.isnan(base).all():
         return df
+
+    if rng is None:
+        rng = np.random.default_rng()
 
     med = np.nanmedian(base)
     base = np.where(np.isnan(base), med, base)
 
-    t = np.arange(duracao_pts)
-    sinal = amp * np.sin(2 * np.pi * t / 4.0)
+    # Oscilação reduzida e aleatória para evitar padrão artificial.
+    amp_evento = _sortear_float_param(amp, rng)
 
-    df.loc[i0:i1 - 1, col] = base + sinal
+    periodo = int(rng.integers(5, 9))
+    fase = float(rng.uniform(0, 2 * np.pi))
+
+    t = np.arange(duracao_pts)
+
+    sinal_senoidal = amp_evento * np.sin(2 * np.pi * t / periodo + fase)
+    ruido = rng.normal(0, amp_evento * 0.20, size=duracao_pts)
+
+    sinal = sinal_senoidal + ruido
+
+    df.loc[i0:i1 - 1, col] = np.maximum(base + sinal, 0.0)
+
     _marcar_intervalo(df, df.loc[i0, "Datetime"], df.loc[i1 - 1, "Datetime"], label, evento_id)
     return df
 
 
-def _inj_lacuna_local(df: pd.DataFrame, col: str, i0: int, i1: int, label: str, evento_id: str | None = None) -> pd.DataFrame:
+def _inj_lacuna_local(
+    df: pd.DataFrame,
+    col: str,
+    i0: int,
+    i1: int,
+    label: str,
+    evento_id: str | None = None
+) -> pd.DataFrame:
     df = _garantir_colunas_controle(df)
+
+    # A lacuna permanece como NaN para aparecer visualmente como ausência de leitura.
     df.loc[i0:i1 - 1, col] = np.nan
+
     _marcar_intervalo(df, df.loc[i0, "Datetime"], df.loc[i1 - 1, "Datetime"], label, evento_id)
     return df
 
@@ -187,25 +264,52 @@ def _injetar_eventos_espalhados(
     df: pd.DataFrame,
     col: str,
     label: str,
-    duracao_pts: int,
+    duracao_pts: int | tuple,
     n_eventos: int,
-    func_injecao
+    func_injecao,
+    rng: np.random.Generator | None = None,
+    margem: int = 30
 ):
     df = _garantir_colunas_controle(df).sort_values("Datetime").reset_index(drop=True)
 
-    inicios = _gerar_inicios_espalhados(len(df), duracao_pts, n_eventos, margem=duracao_pts)
+    if rng is None:
+        rng = np.random.default_rng()
+
+    duracao_max = max(duracao_pts) if isinstance(duracao_pts, (list, tuple)) else int(duracao_pts)
+
+    inicios = _gerar_inicios_aleatorios(
+        len(df),
+        duracao_max,
+        n_eventos,
+        margem=margem,
+        rng=rng
+    )
+
     eventos = []
     ordem = 0
 
     for i0_base in inicios:
-        janela = _ajustar_inicio_para_janela_livre(df, col, i0_base, duracao_pts, max_desloc=30)
+        if ordem >= n_eventos:
+            break
+
+        dur_evento = _sortear_int_param(duracao_pts, rng)
+
+        janela = _ajustar_inicio_para_janela_livre(
+            df,
+            col,
+            i0_base,
+            dur_evento,
+            max_desloc=40
+        )
+
         if janela is None:
             continue
 
         i0, i1 = janela
         ordem += 1
         evento_id = f"{label}_{ordem:03d}"
-        df = func_injecao(df, col, i0, i1, label, evento_id)
+
+        df = func_injecao(df, col, i0, i1, label, evento_id, rng)
 
         eventos.append({
             "evento_id": evento_id,
@@ -236,6 +340,7 @@ def injetar_stuck(
     i1 = i0 + duracao_pts
 
     base = _to_numeric_series(df.loc[i0:i1 - 1, col]).dropna()
+
     if len(base) == 0:
         return df
 
@@ -244,6 +349,7 @@ def injetar_stuck(
 
     evento_id = f"{label}_manual"
     df.loc[i0:i1 - 1, col] = float(valor)
+
     _marcar_intervalo(df, df.loc[i0, "Datetime"], df.loc[i1 - 1, "Datetime"], label, evento_id)
     return df
 
@@ -267,8 +373,8 @@ def injetar_stuck_zero(
 def injetar_queda(
     df: pd.DataFrame,
     col: str,
-    duracao_pts: int = 10,
-    delta: float = -15.0,
+    duracao_pts: int = 20,
+    delta: float | tuple = (-12.0, -4.0),
     seed: int = 44
 ) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -279,14 +385,24 @@ def injetar_queda(
 
     i0 = int(rng.integers(0, len(df) - duracao_pts))
     i1 = i0 + duracao_pts
-    return _inj_queda_local(df, col, i0, i1, LABEL_QUEDA, delta=delta, evento_id="queda_manual")
+
+    return _inj_queda_local(
+        df,
+        col,
+        i0,
+        i1,
+        LABEL_QUEDA,
+        delta=delta,
+        evento_id="queda_manual",
+        rng=rng
+    )
 
 
 def injetar_oscilacao(
     df: pd.DataFrame,
     col: str,
     duracao_pts: int = 30,
-    amp: float = 10.0,
+    amp: float | tuple = (2.0, 4.0),
     seed: int = 45
 ) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -297,13 +413,23 @@ def injetar_oscilacao(
 
     i0 = int(rng.integers(0, len(df) - duracao_pts))
     i1 = i0 + duracao_pts
-    return _inj_oscilacao_local(df, col, i0, i1, LABEL_OSC, amp=amp, evento_id="oscilacao_manual")
+
+    return _inj_oscilacao_local(
+        df,
+        col,
+        i0,
+        i1,
+        LABEL_OSC,
+        amp=amp,
+        evento_id="oscilacao_manual",
+        rng=rng
+    )
 
 
 def injetar_lacuna(
     df: pd.DataFrame,
     col: str,
-    duracao_pts: int = 15,
+    duracao_pts: int = 36,
     seed: int = 46
 ) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -314,7 +440,15 @@ def injetar_lacuna(
 
     i0 = int(rng.integers(0, len(df) - duracao_pts))
     i1 = i0 + duracao_pts
-    return _inj_lacuna_local(df, col, i0, i1, LABEL_LACUNA, evento_id="lacuna_manual")
+
+    return _inj_lacuna_local(
+        df,
+        col,
+        i0,
+        i1,
+        LABEL_LACUNA,
+        evento_id="lacuna_manual"
+    )
 
 
 def injetar_intervalo_por_tempo(
@@ -323,13 +457,14 @@ def injetar_intervalo_por_tempo(
     inicio,
     fim,
     modo: str,
-    amp: float = 8.0,
-    delta: float = -12.0,
+    amp: float | tuple = (2.0, 4.0),
+    delta: float | tuple = (-12.0, -4.0),
     evento_id: str | None = None
 ) -> pd.DataFrame:
     df = _garantir_colunas_controle(df).sort_values("Datetime").reset_index(drop=True)
 
     m = (df["Datetime"] >= inicio) & (df["Datetime"] <= fim)
+
     if m.sum() == 0:
         return df
 
@@ -346,10 +481,26 @@ def injetar_intervalo_por_tempo(
         return _inj_stuck_zero_local(df, col, i0, i1, LABEL_STUCK_ZERO, evento_id)
 
     if modo == LABEL_OSC:
-        return _inj_oscilacao_local(df, col, i0, i1, LABEL_OSC, amp=amp, evento_id=evento_id)
+        return _inj_oscilacao_local(
+            df,
+            col,
+            i0,
+            i1,
+            LABEL_OSC,
+            amp=amp,
+            evento_id=evento_id
+        )
 
     if modo == LABEL_QUEDA:
-        return _inj_queda_local(df, col, i0, i1, LABEL_QUEDA, delta=delta, evento_id=evento_id)
+        return _inj_queda_local(
+            df,
+            col,
+            i0,
+            i1,
+            LABEL_QUEDA,
+            delta=delta,
+            evento_id=evento_id
+        )
 
     if modo == LABEL_LACUNA:
         return _inj_lacuna_local(df, col, i0, i1, LABEL_LACUNA, evento_id)
@@ -361,17 +512,40 @@ def balancear_falhas(
     df: pd.DataFrame,
     col: str,
     config: dict | None = None,
-    return_log: bool = False
+    return_log: bool = False,
+    seed: int | None = None
 ):
     df = _garantir_colunas_controle(df).sort_values("Datetime").reset_index(drop=True)
+    rng = np.random.default_rng(seed)
 
     if config is None:
         config = {
-            LABEL_OSC: {"duracao_pts": 30, "n_eventos": 10, "amp": 10.0},
-            LABEL_STUCK: {"duracao_pts": 25, "n_eventos": 10},
-            LABEL_STUCK_ZERO: {"duracao_pts": 20, "n_eventos": 10},
-            LABEL_LACUNA: {"duracao_pts": 15, "n_eventos": 10},
-            LABEL_QUEDA: {"duracao_pts": 12, "n_eventos": 10, "delta": -15.0},
+            LABEL_OSC: {
+                "duracao_pts": (30, 60),
+                "n_eventos": 10,
+                "amp": (2.0, 4.0)
+            },
+
+            LABEL_STUCK: {
+                "duracao_pts": 25,
+                "n_eventos": 10
+            },
+
+            LABEL_STUCK_ZERO: {
+                "duracao_pts": 20,
+                "n_eventos": 10
+            },
+
+            LABEL_LACUNA: {
+                "duracao_pts": (36, 72),
+                "n_eventos": 10
+            },
+
+            LABEL_QUEDA: {
+                "duracao_pts": (18, 36),
+                "n_eventos": 10,
+                "delta": (-12.0, -4.0)
+            },
         }
 
     eventos_gerados = []
@@ -379,44 +553,104 @@ def balancear_falhas(
     if LABEL_OSC in config:
         p = config[LABEL_OSC]
         df, eventos = _injetar_eventos_espalhados(
-            df, col, LABEL_OSC, p["duracao_pts"], p["n_eventos"],
-            lambda d, c, i0, i1, lab, eid: _inj_oscilacao_local(
-                d, c, i0, i1, lab, amp=float(p.get("amp", 10.0)), evento_id=eid
-            )
+            df,
+            col,
+            LABEL_OSC,
+            p["duracao_pts"],
+            p["n_eventos"],
+            lambda d, c, i0, i1, lab, eid, r: _inj_oscilacao_local(
+                d,
+                c,
+                i0,
+                i1,
+                lab,
+                amp=p.get("amp", (2.0, 4.0)),
+                evento_id=eid,
+                rng=r
+            ),
+            rng=rng
         )
         eventos_gerados.extend(eventos)
 
     if LABEL_STUCK in config:
         p = config[LABEL_STUCK]
         df, eventos = _injetar_eventos_espalhados(
-            df, col, LABEL_STUCK, p["duracao_pts"], p["n_eventos"],
-            lambda d, c, i0, i1, lab, eid: _inj_stuck_local(d, c, i0, i1, lab, evento_id=eid)
+            df,
+            col,
+            LABEL_STUCK,
+            p["duracao_pts"],
+            p["n_eventos"],
+            lambda d, c, i0, i1, lab, eid, r: _inj_stuck_local(
+                d,
+                c,
+                i0,
+                i1,
+                lab,
+                evento_id=eid
+            ),
+            rng=rng
         )
         eventos_gerados.extend(eventos)
 
     if LABEL_STUCK_ZERO in config:
         p = config[LABEL_STUCK_ZERO]
         df, eventos = _injetar_eventos_espalhados(
-            df, col, LABEL_STUCK_ZERO, p["duracao_pts"], p["n_eventos"],
-            lambda d, c, i0, i1, lab, eid: _inj_stuck_zero_local(d, c, i0, i1, lab, evento_id=eid)
+            df,
+            col,
+            LABEL_STUCK_ZERO,
+            p["duracao_pts"],
+            p["n_eventos"],
+            lambda d, c, i0, i1, lab, eid, r: _inj_stuck_zero_local(
+                d,
+                c,
+                i0,
+                i1,
+                lab,
+                evento_id=eid
+            ),
+            rng=rng
         )
         eventos_gerados.extend(eventos)
 
     if LABEL_LACUNA in config:
         p = config[LABEL_LACUNA]
         df, eventos = _injetar_eventos_espalhados(
-            df, col, LABEL_LACUNA, p["duracao_pts"], p["n_eventos"],
-            lambda d, c, i0, i1, lab, eid: _inj_lacuna_local(d, c, i0, i1, lab, evento_id=eid)
+            df,
+            col,
+            LABEL_LACUNA,
+            p["duracao_pts"],
+            p["n_eventos"],
+            lambda d, c, i0, i1, lab, eid, r: _inj_lacuna_local(
+                d,
+                c,
+                i0,
+                i1,
+                lab,
+                evento_id=eid
+            ),
+            rng=rng
         )
         eventos_gerados.extend(eventos)
 
     if LABEL_QUEDA in config:
         p = config[LABEL_QUEDA]
         df, eventos = _injetar_eventos_espalhados(
-            df, col, LABEL_QUEDA, p["duracao_pts"], p["n_eventos"],
-            lambda d, c, i0, i1, lab, eid: _inj_queda_local(
-                d, c, i0, i1, lab, delta=float(p.get("delta", -15.0)), evento_id=eid
-            )
+            df,
+            col,
+            LABEL_QUEDA,
+            p["duracao_pts"],
+            p["n_eventos"],
+            lambda d, c, i0, i1, lab, eid, r: _inj_queda_local(
+                d,
+                c,
+                i0,
+                i1,
+                lab,
+                delta=p.get("delta", (-12.0, -4.0)),
+                evento_id=eid,
+                rng=r
+            ),
+            rng=rng
         )
         eventos_gerados.extend(eventos)
 
@@ -448,12 +682,20 @@ def contar_eventos_rotulados(df: pd.DataFrame, label: str) -> int:
 
 def resumo_eventos_injetados(df: pd.DataFrame, falhas=None) -> pd.DataFrame:
     if falhas is None:
-        falhas = [LABEL_OSC, LABEL_LACUNA, LABEL_QUEDA, LABEL_STUCK, LABEL_STUCK_ZERO]
+        falhas = [
+            LABEL_OSC,
+            LABEL_LACUNA,
+            LABEL_QUEDA,
+            LABEL_STUCK,
+            LABEL_STUCK_ZERO
+        ]
 
     rows = []
+
     for falha in falhas:
         pontos = int((df["label"].astype(str) == falha).sum())
         eventos = contar_eventos_rotulados(df, falha)
+
         rows.append({
             "falha": falha,
             "eventos_continuos": eventos,

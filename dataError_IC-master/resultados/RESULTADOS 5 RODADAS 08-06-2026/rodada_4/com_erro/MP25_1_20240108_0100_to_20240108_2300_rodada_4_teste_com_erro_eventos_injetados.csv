@@ -1,0 +1,7 @@
+evento_id,falha,inicio,fim,duracao_pts
+oscilacao_001,oscilacao,2024-01-08 06:00:00,2024-01-08 16:10:00,62.0
+lacuna_001,lacuna,2024-01-08 02:00:00,2024-01-08 05:50:00,24.0
+lacuna_002,lacuna,2024-01-08 16:20:00,2024-01-08 20:10:00,24.0
+oscilacao_final,oscilacao,,,
+lacuna_final,lacuna,,,
+queda_final,queda,,,
