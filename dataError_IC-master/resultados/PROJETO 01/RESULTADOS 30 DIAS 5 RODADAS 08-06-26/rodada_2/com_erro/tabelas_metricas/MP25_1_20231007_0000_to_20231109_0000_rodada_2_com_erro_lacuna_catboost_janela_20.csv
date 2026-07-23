@@ -1,0 +1,5 @@
+Deslocamento,Eventos_reais,Eventos_detectados,Diferenca_eventos,TP,FP,TN,FN,ACC,Precision,Recall,F1,Balanced_ACC
+5,23,23,0,295,0,652,0,1.0,1.0,1.0,1.0,1.0
+10,23,23,0,144,0,330,0,1.0,1.0,1.0,1.0,1.0
+15,23,23,0,101,0,215,0,1.0,1.0,1.0,1.0,1.0
+20,22,22,0,72,0,165,0,1.0,1.0,1.0,1.0,1.0

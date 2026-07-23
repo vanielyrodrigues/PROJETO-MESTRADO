@@ -1,0 +1,4 @@
+falha,duracao_pts,n_eventos,amp,delta
+oscilacao,"(36, 72)",21,"(3.0, 8.0)",
+lacuna,"(24, 48)",30,,
+queda,"(18, 36)",30,,"(-15.0, -5.0)"

@@ -1,0 +1,4 @@
+variavel,falha,modelo,f1_medio,f1_desvio,precisao_media,recall_medio,eventos_reais_medios,eventos_detectados_medios
+Umidade,lacuna,catboost,1.0,0.0,1.0,1.0,20.0,20.0
+Umidade,oscilacao,mlp,0.8491944804540086,0.0582893102527548,0.8065587326456892,0.908943469785575,8.6,9.6
+Umidade,queda,xgboost,0.708285374755963,0.09232750517861747,0.6359797297297297,0.8081925243215565,9.8,10.2

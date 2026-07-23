@@ -1,0 +1,4 @@
+variavel,falha,modelo,f1_medio,f1_desvio,precisao_media,recall_medio,eventos_reais_medios,eventos_detectados_medios
+"MP2,5_1",lacuna,catboost,1.0,0.0,1.0,1.0,23.0,23.0
+"MP2,5_1",oscilacao,xgboost,0.8640485890222045,0.04561056035789868,0.8304741554741554,0.9063320463320463,12.0,12.2
+"MP2,5_1",queda,xgboost,0.8835669894493424,0.05371184672155014,0.8371832089479149,0.9420770993139413,11.8,12.0

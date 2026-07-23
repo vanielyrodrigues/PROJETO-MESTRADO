@@ -1,0 +1,4 @@
+variavel,falha,modelo,f1_medio,f1_desvio,precisao_media,recall_medio,eventos_reais_medios,eventos_detectados_medios
+MP10_1,lacuna,catboost,1.0,0.0,1.0,1.0,20.6,20.6
+MP10_1,oscilacao,mlp,0.942913356006968,0.02807937099774382,0.9451372657793442,0.9424566621311916,13.4,13.6
+MP10_1,queda,catboost,0.9657239838316889,0.021734850377683166,0.9659584718408247,0.9667900726724256,11.4,11.4

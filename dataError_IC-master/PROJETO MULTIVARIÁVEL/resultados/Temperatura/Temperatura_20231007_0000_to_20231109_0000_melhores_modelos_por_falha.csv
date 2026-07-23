@@ -1,0 +1,4 @@
+variavel,falha,modelo,f1_medio,f1_desvio,precisao_media,recall_medio,eventos_reais_medios,eventos_detectados_medios
+Temperatura,lacuna,catboost,1.0,0.0,1.0,1.0,20.4,20.4
+Temperatura,oscilacao,mlp,0.8148894964684438,0.0398365965531763,0.7899270959306784,0.8454449326617368,10.4,11.8
+Temperatura,queda,xgboost,0.7124026324306829,0.05215388438436295,0.6635461541538124,0.781978021978022,12.2,12.8
