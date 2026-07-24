@@ -183,4 +183,4 @@ Universidade Estadual do Oeste do Paraná (UNIOESTE)
 
 ## Licença
 
-Este projeto é disponibilizado exclusivamente para fins acadêmicos e científicos.
+Este projeto está disponível sob os termos da licença MIT. Consulte o arquivo [LICENSE](LICENSE) para mais informações.
