@@ -1,4 +1,4 @@
-# PROJETO-MESTRADO
+# Air Quality Fault Detection Using Machine Learning
 
 # Fault Detection in Low-Cost Air Quality Sensors using Machine Learning
 
@@ -106,7 +106,7 @@ Avaliação dos resultados
 # Estrutura do repositório
 
 ```text
-PROJETO-MESTRADO/
+air-quality-fault-detection-ml/
 │
 ├── dataError_IC-master/
 │   Código principal da dissertação
