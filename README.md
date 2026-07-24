@@ -10,13 +10,15 @@
 
 Este repositório contém todo o código-fonte desenvolvido durante a dissertação de Mestrado em Ciência da Computação da Universidade Estadual do Oeste do Paraná (UNIOESTE).
 
-O trabalho propõe uma metodologia baseada em Aprendizado de Máquina para detectar automaticamente falhas em sensores de baixo custo utilizados no monitoramento da qualidade do ar.
+A pesquisa propõe uma metodologia baseada em Aprendizado de Máquina para detecção automática de falhas em sensores de baixo custo utilizados no monitoramento da qualidade do ar.
 
-Além do código-fonte, este repositório disponibiliza os scripts utilizados na preparação dos dados, simulação das falhas, treinamento dos modelos de aprendizado de máquina e geração automática dos resultados experimentais apresentados na dissertação.
+Além do código-fonte, este repositório disponibiliza todos os scripts utilizados durante o desenvolvimento da pesquisa, incluindo a preparação dos dados, simulação das falhas, treinamento dos modelos de aprendizado de máquina, geração automática das características e produção dos resultados experimentais apresentados na dissertação.
+
+Este repositório constitui o **material suplementar oficial da dissertação**, permitindo a reprodução dos experimentos descritos no trabalho.
 
 ---
 
-## Informações acadêmicas
+# Informações acadêmicas
 
 **Título da dissertação**
 
@@ -40,13 +42,13 @@ Prof. Dr. Roberto Sheffel
 
 ---
 
-## Objetivo
+# Objetivo
 
-O objetivo deste trabalho é desenvolver uma metodologia capaz de detectar automaticamente falhas em sensores ambientais de baixo custo utilizando técnicas de Aprendizado de Máquina, contribuindo para aumentar a confiabilidade dos dados coletados em redes de monitoramento da qualidade do ar.
+Desenvolver uma metodologia capaz de detectar automaticamente falhas em sensores ambientais de baixo custo utilizando técnicas de Aprendizado de Máquina, aumentando a confiabilidade dos dados coletados por redes de monitoramento da qualidade do ar.
 
 ---
 
-## Variáveis ambientais analisadas
+# Variáveis ambientais analisadas
 
 - PM2.5
 - PM10
@@ -55,19 +57,19 @@ O objetivo deste trabalho é desenvolver uma metodologia capaz de detectar autom
 
 ---
 
-## Falhas simuladas
+# Falhas simuladas
 
-Durante os experimentos foram simuladas três categorias de falhas em séries temporais ambientais:
+Os experimentos contemplam a detecção automática das seguintes categorias de falhas:
 
 - Oscilação
 - Queda
 - Lacuna
 
-Cada falha foi inserida automaticamente em diferentes posições das séries temporais, permitindo avaliar a capacidade dos modelos em identificar eventos anômalos.
+As falhas foram inseridas automaticamente em séries temporais ambientais para avaliar a capacidade dos modelos de aprendizado de máquina em reconhecer eventos anômalos.
 
 ---
 
-## Modelos de Aprendizado de Máquina
+# Modelos de Aprendizado de Máquina
 
 Foram avaliados os seguintes algoritmos:
 
@@ -78,9 +80,9 @@ Foram avaliados os seguintes algoritmos:
 
 ---
 
-## Fluxo geral da metodologia
+# Fluxo geral da metodologia
 
-```
+```text
 Dados ambientais
         │
         ▼
@@ -101,77 +103,133 @@ Avaliação dos resultados
 
 ---
 
-## Estrutura do repositório
+# Estrutura do repositório
 
-```
-PROJETO-MESTRADO
+```text
+PROJETO-MESTRADO/
 │
-├── dataError_IC-master
-│   Código principal do projeto
+├── dataError_IC-master/
+│   Código principal da dissertação
 │
-├── graficos_artigo_mp25_1
+├── graficos_artigo_mp25_1/
 │   Figuras utilizadas na dissertação
 │
-├── raw_data_DUSTAI
+├── raw_data_DUSTAI/
 │   Base de dados utilizada nos experimentos
 │
-├── main e ajustes originais
+├── main e ajustes originais/
 │   Versões iniciais do desenvolvimento
+│
+├── LICENSE
 │
 └── README.md
 ```
 
 ---
 
-## Resultados disponibilizados
+# Código principal da dissertação
 
-O repositório contém os resultados completos obtidos durante os experimentos realizados para as quatro variáveis ambientais, incluindo:
+O desenvolvimento principal desta pesquisa encontra-se na pasta:
 
-- cinco rodadas experimentais;
-- métricas de desempenho;
-- tabelas completas;
-- arquivos CSV gerados automaticamente;
-- figuras utilizadas na dissertação.
+```text
+dataError_IC-master/
+```
+
+Nessa pasta estão implementados:
+
+- simulação das falhas;
+- processamento das séries temporais;
+- geração automática das características;
+- treinamento dos modelos;
+- avaliação dos classificadores;
+- geração automática das tabelas;
+- geração automática dos gráficos.
 
 ---
 
-## Reprodutibilidade
+# Código dos experimentos multivariáveis
 
-Todos os experimentos descritos na dissertação podem ser reproduzidos a partir dos códigos disponibilizados neste repositório.
+O módulo responsável pelos experimentos realizados com as quatro variáveis ambientais encontra-se em:
+
+```text
+dataError_IC-master/
+└── PROJETO MULTIVARIÁVEL/
+```
+
+Esse módulo reúne:
+
+- experimentos para PM2.5;
+- experimentos para PM10;
+- experimentos para Temperatura;
+- experimentos para Umidade;
+- cinco rodadas experimentais;
+- relatórios completos;
+- resultados gerados automaticamente;
+- tabelas utilizadas na dissertação.
+
+---
+
+# Resultados disponibilizados
+
+O repositório disponibiliza os resultados completos produzidos durante os experimentos, incluindo:
+
+- arquivos CSV;
+- métricas de desempenho;
+- matrizes de confusão;
+- tabelas completas;
+- figuras;
+- relatórios.
+
+Todos os resultados correspondem aos experimentos descritos na dissertação.
+
+---
+
+# Reprodutibilidade
+
+Todos os experimentos apresentados na dissertação podem ser reproduzidos utilizando os códigos disponibilizados neste repositório.
 
 Os scripts permitem reproduzir:
 
 - simulação das falhas;
-- geração das características;
+- geração automática das características;
 - treinamento dos modelos;
-- validação dos modelos;
-- geração automática das métricas;
-- geração das tabelas utilizadas na dissertação.
+- avaliação dos classificadores;
+- geração das métricas;
+- geração das tabelas;
+- geração das figuras.
 
 ---
 
-## Tecnologias utilizadas
+# Tecnologias utilizadas
 
-- Python 3
+- Python 3.11
+- NumPy
+- Pandas
 - Scikit-learn
 - XGBoost
 - CatBoost
-- NumPy
-- Pandas
 - Matplotlib
 - PyCharm
 
 ---
 
-## Publicação
+# Como citar este trabalho
 
-Este repositório foi desenvolvido como material suplementar da dissertação de Mestrado.
+Caso este repositório seja utilizado em pesquisas acadêmicas, recomenda-se citar a dissertação correspondente.
 
-Caso este código seja utilizado em pesquisas acadêmicas, solicita-se a citação da dissertação correspondente.
+**Rodrigues, Vaniely.**
+
+*Detecção de Falhas em Sensores de Qualidade do Ar utilizando Aprendizado de Máquina.*
+
+Programa de Pós-Graduação em Ciência da Computação.
+
+Universidade Estadual do Oeste do Paraná (UNIOESTE).
+
+2026.
 
 ---
 
-## Contato
+# Contato
 
 Vaniely Rodrigues
 
@@ -181,6 +239,8 @@ Universidade Estadual do Oeste do Paraná (UNIOESTE)
 
 ---
 
-## Licença
+# Licença
 
-Este projeto está disponível sob os termos da licença MIT. Consulte o arquivo [LICENSE](LICENSE) para mais informações.
+Este projeto está disponível sob os termos da licença MIT.
+
+Consulte o arquivo [LICENSE](LICENSE) para mais informações.
