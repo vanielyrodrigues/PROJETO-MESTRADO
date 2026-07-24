@@ -1,0 +1,88 @@
+
+\begin{longtable}{ccclrrrrrrrr}
+\caption{Resultados por rodada, modelo e falha para a variável PM2,5 no cenário com falhas simuladas.}
+\label{tab:ap_pm25_resultados_rodadas}\\
+\toprule
+\textbf{Rod.} & \textbf{Falha} & \textbf{Modelo} & \textbf{Jan.} &
+\textbf{Av.} & \textbf{Acc.} & \textbf{Acc. bal.} &
+\textbf{Prec.} & \textbf{Rec.} & \textbf{F1} &
+\textbf{Ev. reais} & \textbf{Ev. det.} \\
+\midrule
+\endfirsthead
+
+\multicolumn{12}{c}{\tablename\ \thetable\ -- continuação} \\
+\toprule
+\textbf{Rod.} & \textbf{Falha} & \textbf{Modelo} & \textbf{Jan.} &
+\textbf{Av.} & \textbf{Acc.} & \textbf{Acc. bal.} &
+\textbf{Prec.} & \textbf{Rec.} & \textbf{F1} &
+\textbf{Ev. reais} & \textbf{Ev. det.} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{12}{r}{Continua na próxima página} \\
+\endfoot
+
+\bottomrule
+\endlastfoot
+1 & Lacuna & CatBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 24 & 24 \\
+1 & Lacuna & MLP & 100 & 10 & 0,979 & 0,983 & 1,000 & 0,966 & 0,983 & 13 & 13 \\
+1 & Lacuna & Random Forest & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 24 & 24 \\
+1 & Lacuna & XGBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 24 & 24 \\
+1 & Oscilação & CatBoost & 90 & 65 & 0,917 & 0,912 & 0,932 & 0,932 & 0,932 & 11 & 11 \\
+1 & Oscilação & MLP & 100 & 65 & 0,889 & 0,905 & 0,975 & 0,848 & 0,907 & 11 & 12 \\
+1 & Oscilação & Random Forest & 100 & 60 & 0,897 & 0,869 & 0,873 & 0,980 & 0,923 & 10 & 10 \\
+1 & Oscilação & XGBoost & 100 & 60 & 0,910 & 0,879 & 0,875 & 1,000 & 0,933 & 10 & 11 \\
+1 & Queda & CatBoost & 100 & 70 & 0,896 & 0,892 & 0,897 & 0,921 & 0,909 & 11 & 11 \\
+1 & Queda & MLP & 90 & 80 & 0,898 & 0,900 & 0,933 & 0,875 & 0,903 & 12 & 12 \\
+1 & Queda & Random Forest & 80 & 75 & 0,952 & 0,953 & 0,968 & 0,938 & 0,952 & 11 & 12 \\
+1 & Queda & XGBoost & 90 & 75 & 0,937 & 0,935 & 0,914 & 0,970 & 0,941 & 11 & 12 \\
+2 & Lacuna & CatBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 28 & 28 \\
+2 & Lacuna & MLP & 90 & 5 & 0,976 & 0,982 & 1,000 & 0,964 & 0,982 & 14 & 14 \\
+2 & Lacuna & Random Forest & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 28 & 28 \\
+2 & Lacuna & XGBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 28 & 28 \\
+2 & Oscilação & CatBoost & 90 & 80 & 0,780 & 0,751 & 0,800 & 0,865 & 0,831 & 9 & 8 \\
+2 & Oscilação & MLP & 100 & 55 & 0,824 & 0,801 & 0,877 & 0,862 & 0,870 & 8 & 8 \\
+2 & Oscilação & Random Forest & 100 & 100 & 0,851 & 0,855 & 0,931 & 0,844 & 0,885 & 8 & 8 \\
+2 & Oscilação & XGBoost & 80 & 80 & 0,847 & 0,814 & 0,833 & 0,946 & 0,886 & 9 & 9 \\
+2 & Queda & CatBoost & 100 & 45 & 0,904 & 0,905 & 0,940 & 0,870 & 0,904 & 11 & 11 \\
+2 & Queda & MLP & 100 & 70 & 0,821 & 0,827 & 0,960 & 0,686 & 0,800 & 11 & 11 \\
+2 & Queda & Random Forest & 100 & 70 & 0,896 & 0,896 & 0,912 & 0,886 & 0,899 & 11 & 11 \\
+2 & Queda & XGBoost & 90 & 40 & 0,906 & 0,905 & 0,909 & 0,893 & 0,901 & 12 & 12 \\
+3 & Lacuna & CatBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 20 & 20 \\
+3 & Lacuna & MLP & 20 & 5 & 0,995 & 0,990 & 1,000 & 0,980 & 0,990 & 20 & 20 \\
+3 & Lacuna & Random Forest & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 20 & 20 \\
+3 & Lacuna & XGBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 20 & 20 \\
+3 & Oscilação & CatBoost & 100 & 20 & 0,803 & 0,754 & 0,793 & 0,932 & 0,857 & 12 & 12 \\
+3 & Oscilação & MLP & 90 & 70 & 0,851 & 0,839 & 0,857 & 0,900 & 0,878 & 11 & 11 \\
+3 & Oscilação & Random Forest & 100 & 35 & 0,812 & 0,766 & 0,798 & 0,940 & 0,863 & 11 & 11 \\
+3 & Oscilação & XGBoost & 70 & 40 & 0,797 & 0,785 & 0,741 & 0,952 & 0,833 & 14 & 14 \\
+3 & Queda & CatBoost & 100 & 50 & 0,872 & 0,873 & 0,900 & 0,865 & 0,882 & 15 & 15 \\
+3 & Queda & MLP & 30 & 25 & 0,952 & 0,933 & 0,941 & 0,889 & 0,914 & 21 & 23 \\
+3 & Queda & Random Forest & 100 & 30 & 0,840 & 0,848 & 0,920 & 0,784 & 0,847 & 15 & 15 \\
+3 & Queda & XGBoost & 80 & 75 & 0,905 & 0,904 & 0,882 & 0,938 & 0,909 & 15 & 14 \\
+4 & Lacuna & CatBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 20 & 20 \\
+4 & Lacuna & MLP & 20 & 5 & 0,994 & 0,988 & 1,000 & 0,976 & 0,988 & 20 & 20 \\
+4 & Lacuna & Random Forest & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 20 & 20 \\
+4 & Lacuna & XGBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 20 & 20 \\
+4 & Oscilação & CatBoost & 90 & 70 & 0,746 & 0,733 & 0,857 & 0,766 & 0,809 & 10 & 10 \\
+4 & Oscilação & MLP & 100 & 95 & 0,735 & 0,716 & 0,839 & 0,765 & 0,800 & 9 & 9 \\
+4 & Oscilação & Random Forest & 100 & 85 & 0,764 & 0,796 & 0,933 & 0,718 & 0,812 & 8 & 9 \\
+4 & Oscilação & XGBoost & 50 & 50 & 0,800 & 0,800 & 0,846 & 0,800 & 0,822 & 16 & 16 \\
+4 & Queda & CatBoost & 100 & 95 & 0,857 & 0,845 & 0,833 & 0,789 & 0,811 & 9 & 9 \\
+4 & Queda & MLP & 100 & 75 & 0,778 & 0,788 & 0,677 & 0,840 & 0,750 & 9 & 10 \\
+4 & Queda & Random Forest & 100 & 85 & 0,800 & 0,811 & 0,680 & 0,850 & 0,756 & 9 & 9 \\
+4 & Queda & XGBoost & 100 & 95 & 0,816 & 0,840 & 0,692 & 0,947 & 0,800 & 9 & 9 \\
+5 & Lacuna & CatBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 23 & 23 \\
+5 & Lacuna & MLP & 20 & 5 & 0,992 & 0,984 & 1,000 & 0,968 & 0,984 & 23 & 23 \\
+5 & Lacuna & Random Forest & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 23 & 23 \\
+5 & Lacuna & XGBoost & 20 & 5 & 1,000 & 1,000 & 1,000 & 1,000 & 1,000 & 23 & 23 \\
+5 & Oscilação & CatBoost & 60 & 40 & 0,831 & 0,834 & 0,891 & 0,814 & 0,851 & 15 & 17 \\
+5 & Oscilação & MLP & 100 & 90 & 0,788 & 0,778 & 0,879 & 0,806 & 0,841 & 11 & 10 \\
+5 & Oscilação & Random Forest & 90 & 65 & 0,764 & 0,780 & 0,900 & 0,735 & 0,809 & 12 & 13 \\
+5 & Oscilação & XGBoost & 100 & 90 & 0,788 & 0,760 & 0,857 & 0,833 & 0,845 & 11 & 11 \\
+5 & Queda & CatBoost & 100 & 85 & 0,873 & 0,873 & 0,852 & 0,885 & 0,868 & 10 & 11 \\
+5 & Queda & MLP & 100 & 85 & 0,782 & 0,785 & 0,733 & 0,846 & 0,786 & 10 & 10 \\
+5 & Queda & Random Forest & 100 & 85 & 0,818 & 0,820 & 0,786 & 0,846 & 0,815 & 10 & 10 \\
+5 & Queda & XGBoost & 90 & 75 & 0,873 & 0,884 & 0,788 & 0,963 & 0,867 & 12 & 13 \\
+\end{longtable}

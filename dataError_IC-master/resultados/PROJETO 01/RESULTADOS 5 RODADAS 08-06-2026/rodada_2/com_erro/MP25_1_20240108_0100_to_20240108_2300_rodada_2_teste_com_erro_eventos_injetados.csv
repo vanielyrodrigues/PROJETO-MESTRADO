@@ -1,7 +1,0 @@
-evento_id,falha,inicio,fim,duracao_pts
-oscilacao_001,oscilacao,2024-01-08 06:00:00,2024-01-08 17:00:00,67.0
-lacuna_001,lacuna,2024-01-08 01:40:00,2024-01-08 05:50:00,26.0
-queda_001,queda,2024-01-08 17:10:00,2024-01-08 20:30:00,21.0
-oscilacao_final,oscilacao,,,
-lacuna_final,lacuna,,,
-queda_final,queda,,,
