@@ -1,0 +1,6 @@
+evento_id,falha,inicio_idx,fim_idx,inicio,fim,duracao_pts,valor_injetado,detectado,indice_deteccao_pos,variavel,falha_avaliada
+stuck_01,stuck,629,658,2023-10-11 08:50:00,2023-10-11 13:40:00,30,93.69999999999999,True,0,Umidade,stuck
+stuck_02,stuck,1639,1670,2023-10-18 09:10:00,2023-10-18 14:20:00,32,44.5,True,1,Umidade,stuck
+stuck_03,stuck,2706,2737,2023-10-25 19:00:00,2023-10-26 00:10:00,32,91.1,True,2,Umidade,stuck
+stuck_04,stuck,3495,3519,2023-10-31 06:30:00,2023-10-31 10:30:00,25,59.73438054360693,True,3,Umidade,stuck
+stuck_05,stuck,4496,4521,2023-11-07 05:20:00,2023-11-07 09:30:00,26,75.3,True,4,Umidade,stuck

@@ -1,0 +1,13 @@
+eventos_injetados,eventos_injetados_detectados,falsos_negativos_eventos_injetados,taxa_deteccao_eventos_injetados,padroes_preexistentes_base,deteccoes_pos_injecao_total,deteccoes_adicionais_pos_injecao,adicionais_compativeis_com_preexistentes,adicionais_novas_nao_explicadas,variavel,falha,min_pontos_regra,minutos_regra,seed
+5,5,0,1.0,0,5,0,0,0,"MP2,5_1",lacuna,6,60,20260823
+5,5,0,1.0,1,6,1,1,0,"MP2,5_1",stuck,24,240,20260824
+5,5,0,1.0,5,10,5,5,0,"MP2,5_1",stuck_at_zero,24,240,20260825
+5,5,0,1.0,0,5,0,0,0,MP10_1,lacuna,6,60,20260923
+5,5,0,1.0,6,11,6,6,0,MP10_1,stuck,24,240,20260924
+5,5,0,1.0,0,5,0,0,0,MP10_1,stuck_at_zero,24,240,20260925
+5,5,0,1.0,0,5,0,0,0,Temperatura,lacuna,6,60,20261023
+5,5,0,1.0,2,7,2,2,0,Temperatura,stuck,24,240,20261024
+5,5,0,1.0,0,5,0,0,0,Temperatura,stuck_at_zero,24,240,20261025
+5,5,0,1.0,0,5,0,0,0,Umidade,lacuna,6,60,20261123
+5,5,0,1.0,0,5,0,0,0,Umidade,stuck,24,240,20261124
+5,5,0,1.0,0,5,0,0,0,Umidade,stuck_at_zero,24,240,20261125

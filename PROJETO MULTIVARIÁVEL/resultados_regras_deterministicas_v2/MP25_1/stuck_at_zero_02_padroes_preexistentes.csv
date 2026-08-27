@@ -1,0 +1,6 @@
+falha_detectada,inicio_idx,fim_idx,inicio,fim,duracao_pts,valor_constante,variavel,falha_avaliada
+stuck_at_zero,3937,3978,2023-11-03 08:10:00,2023-11-03 15:00:00,42,0.0,"MP2,5_1",stuck_at_zero
+stuck_at_zero,4075,4124,2023-11-04 07:10:00,2023-11-04 15:20:00,50,0.0,"MP2,5_1",stuck_at_zero
+stuck_at_zero,4372,4422,2023-11-06 08:40:00,2023-11-06 17:00:00,51,0.0,"MP2,5_1",stuck_at_zero
+stuck_at_zero,4512,4548,2023-11-07 08:00:00,2023-11-07 14:00:00,37,0.0,"MP2,5_1",stuck_at_zero
+stuck_at_zero,4642,4701,2023-11-08 05:40:00,2023-11-08 15:30:00,60,0.0,"MP2,5_1",stuck_at_zero

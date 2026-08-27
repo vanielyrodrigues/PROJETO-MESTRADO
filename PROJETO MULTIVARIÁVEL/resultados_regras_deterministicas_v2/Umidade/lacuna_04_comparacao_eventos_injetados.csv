@@ -1,0 +1,6 @@
+evento_id,falha,inicio_idx,fim_idx,inicio,fim,duracao_pts,valor_injetado,detectado,indice_deteccao_pos,variavel,falha_avaliada
+lacuna_01,lacuna,236,247,2023-10-08 15:20:00,2023-10-08 17:10:00,12,,True,0,Umidade,lacuna
+lacuna_02,lacuna,338,349,2023-10-09 08:20:00,2023-10-09 10:10:00,12,,True,1,Umidade,lacuna
+lacuna_03,lacuna,1138,1146,2023-10-14 21:40:00,2023-10-14 23:00:00,9,,True,2,Umidade,lacuna
+lacuna_04,lacuna,2057,2065,2023-10-21 06:50:00,2023-10-21 08:10:00,9,,True,3,Umidade,lacuna
+lacuna_05,lacuna,3458,3463,2023-10-31 00:20:00,2023-10-31 01:10:00,6,,True,4,Umidade,lacuna

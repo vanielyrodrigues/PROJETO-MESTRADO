@@ -1,0 +1,13 @@
+variavel,falha,eventos_injetados,eventos_injetados_detectados,padroes_preexistentes_base,deteccoes_pos_injecao_total,deteccoes_adicionais_pos_injecao,adicionais_compativeis_com_preexistentes,adicionais_novas_nao_explicadas,min_pontos_regra,minutos_regra
+"MP2,5_1",lacuna,5,5,0,5,0,0,0,6,60
+"MP2,5_1",stuck,5,5,1,6,1,1,0,24,240
+"MP2,5_1",stuck_at_zero,5,5,5,10,5,5,0,24,240
+MP10_1,lacuna,5,5,0,5,0,0,0,6,60
+MP10_1,stuck,5,5,6,11,6,6,0,24,240
+MP10_1,stuck_at_zero,5,5,0,5,0,0,0,24,240
+Temperatura,lacuna,5,5,0,5,0,0,0,6,60
+Temperatura,stuck,5,5,2,7,2,2,0,24,240
+Temperatura,stuck_at_zero,5,5,0,5,0,0,0,24,240
+Umidade,lacuna,5,5,0,5,0,0,0,6,60
+Umidade,stuck,5,5,0,5,0,0,0,24,240
+Umidade,stuck_at_zero,5,5,0,5,0,0,0,24,240

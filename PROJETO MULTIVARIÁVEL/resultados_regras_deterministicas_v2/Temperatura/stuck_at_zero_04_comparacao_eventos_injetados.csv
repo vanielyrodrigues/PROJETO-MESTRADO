@@ -1,0 +1,6 @@
+evento_id,falha,inicio_idx,fim_idx,inicio,fim,duracao_pts,valor_injetado,detectado,indice_deteccao_pos,variavel,falha_avaliada
+stuck_at_zero_01,stuck_at_zero,426,452,2023-10-09 23:00:00,2023-10-10 03:20:00,27,0.0,True,0,Temperatura,stuck_at_zero
+stuck_at_zero_02,stuck_at_zero,706,737,2023-10-11 21:40:00,2023-10-12 02:50:00,32,0.0,True,1,Temperatura,stuck_at_zero
+stuck_at_zero_03,stuck_at_zero,789,814,2023-10-12 11:30:00,2023-10-12 15:40:00,26,0.0,True,2,Temperatura,stuck_at_zero
+stuck_at_zero_04,stuck_at_zero,1492,1523,2023-10-17 08:40:00,2023-10-17 13:50:00,32,0.0,True,3,Temperatura,stuck_at_zero
+stuck_at_zero_05,stuck_at_zero,3143,3174,2023-10-28 19:50:00,2023-10-29 01:00:00,32,0.0,True,4,Temperatura,stuck_at_zero
